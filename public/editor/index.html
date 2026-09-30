@@ -145,22 +145,39 @@
     .type-table thead th span { writing-mode: vertical-rl; transform: rotate(180deg); display: inline-block; }
     .type-table tbody th { position: sticky; left: 0; z-index: 1; min-width: 108px; text-align: left; padding-left: 9px; }
     .type-table thead th:first-child { left: 0; z-index: 3; min-width: 108px; }
-    /* Esquina fija: eje vertical = ofensivo; eje horizontal = defensivo. */
+    /* Esquina fija: etiquetas horizontales, sin heredar la rotación de los tipos. */
     .type-table .type-axis-corner {
       position: sticky; left: 0; top: 0; z-index: 4;
-      width: 108px; min-width: 108px; height: 105px;
+      width: 124px; min-width: 124px; height: 105px;
       padding: 0; overflow: hidden;
-      background: linear-gradient(to bottom right,
-        #343449 calc(50% - 1px), #9b8dff 50%, #343449 calc(50% + 1px));
+      background: #343449;
+      box-shadow: inset 0 0 0 1px #55556b;
     }
-    .type-axis-corner .axis-defensive,
-    .type-axis-corner .axis-offensive {
-      position: absolute; font-size: 11px; font-weight: 700;
-      letter-spacing: .15px; line-height: 1.2; white-space: nowrap;
-      text-shadow: 0 1px 2px #15151f;
+    .type-table .type-axis-corner::after {
+      content: "";
+      position: absolute; left: 10px; right: 10px; top: 50%;
+      border-top: 1px solid #77718f;
+      pointer-events: none;
     }
-    .type-axis-corner .axis-defensive { top: 17px; right: 7px; color: #bdb4ff; }
-    .type-axis-corner .axis-offensive { bottom: 17px; left: 7px; color: #ffcf9b; }
+    /* Más específico que .type-table thead th span (que gira los nombres). */
+    .type-table thead th.type-axis-corner span {
+      position: absolute;
+      display: block;
+      writing-mode: horizontal-tb;
+      transform: none;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: .2px;
+      white-space: nowrap;
+      text-shadow: none;
+    }
+    .type-table thead th.type-axis-corner .axis-defensive {
+      top: 23px; right: 10px; color: #c5bcff;
+    }
+    .type-table thead th.type-axis-corner .axis-offensive {
+      bottom: 23px; left: 10px; color: #ffcf9b;
+    }
     .type-axis-corner .axis-defensive::after { content: " →"; }
     .type-axis-corner .axis-offensive::before { content: "↓ "; }
     .type-cell { display: block; width: 42px; height: 35px; padding: 0; margin: 0; border: 2px solid #6b6b7d; border-radius: 4px; cursor: pointer; }
