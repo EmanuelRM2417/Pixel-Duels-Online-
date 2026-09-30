@@ -40,7 +40,35 @@
 
     <p>El juego público no se modificará automáticamente.</p>
 
-    <strong>Editor en construcción</strong>
+    <label for="draftNotes">Notas del borrador</label>
+
+<br><br>
+
+<textarea
+  id="draftNotes"
+  rows="6"
+  placeholder="Escribí aquí tus cambios..."
+  style="width: 100%; box-sizing: border-box;"
+></textarea>
+
+<p id="saveStatus">Sin cambios pendientes</p>
+
+<script>
+  const draftNotes = document.getElementById("draftNotes");
+  const saveStatus = document.getElementById("saveStatus");
+
+  let saveTimer;
+
+  draftNotes.addEventListener("input", () => {
+    clearTimeout(saveTimer);
+
+    saveStatus.textContent = "Cambios pendientes...";
+
+    saveTimer = setTimeout(() => {
+      saveStatus.textContent = "Guardado automático pendiente de conectar";
+    }, 2000);
+  });
+</script>
   </div>
 </body>
 </html>
