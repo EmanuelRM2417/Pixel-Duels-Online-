@@ -10,6 +10,10 @@ class_name = "Room"
 tag = "v1"
 new_sqlite_classes = ["Room"]
 
+[[kv_namespaces]]
+binding = "EDITOR_DRAFTS"
+id = "1173494a63814d1b9093b9a409cf2832"
+
 [assets]
 directory = "./public"
 binding = "ASSETS"
