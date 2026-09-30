@@ -14,6 +14,10 @@ new_sqlite_classes = ["Room"]
 binding = "EDITOR_DRAFTS"
 id = "453d2d63210e42149663b5771e76a803"
 
+[[r2_buckets]]
+binding = "EDITOR_SPRITES"
+bucket_name = "universal-duels-sprites-test"
+
 [assets]
 directory = "./public"
 binding = "ASSETS"
