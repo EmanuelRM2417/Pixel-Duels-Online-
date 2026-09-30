@@ -20,6 +20,14 @@ export default {
         return json({ error: "Método no permitido." }, 405);
       }
 
+          
+      if (url.pathname === "/editor-api/draft") {
+      return json({
+        ok: false,
+        error: "El guardado privado todavía no está habilitado."
+      }, 503);
+    }
+      
       if (!env.EDITOR_DRAFTS) {
         return json({
           ok: false,
