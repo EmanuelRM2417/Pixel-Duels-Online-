@@ -142,7 +142,7 @@
     .type-table { border-collapse: separate; border-spacing: 2px; width: max-content; background: #1b1b29; }
     .type-table th { background: #343449; color: white; font-size: 12px; min-width: 47px; padding: 7px 3px; }
     .type-table thead th { position: sticky; top: 0; z-index: 2; height: 105px; vertical-align: bottom; }
-    .type-table thead th span { writing-mode: vertical-rl; transform: rotate(180deg); display: inline-block; }
+    .type-table thead th:not(.type-axis-corner) span { writing-mode: vertical-rl; transform: rotate(180deg); display: inline-block; }
     .type-table tbody th { position: sticky; left: 0; z-index: 1; min-width: 108px; text-align: left; padding-left: 9px; }
     .type-table thead th:first-child { left: 0; z-index: 3; min-width: 108px; }
     /* Esquina fija: etiquetas horizontales, sin heredar la rotación de los tipos. */
@@ -188,6 +188,21 @@
     .type-cell[data-value="inmune"] { background: #050505; }
     #typeChartStatus { color: #c4c4d5; min-height: 20px; }
     #resetTypeChart { background: #6b3946; }
+
+    /* Catálogo modular: formularios independientes del motor de combate. */
+    .catalog-panel { max-width: 950px; text-align: left; }
+    .catalog-panel h2, .catalog-panel > .help { text-align: center; }
+    .catalog-layout { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr); gap: 18px; }
+    .catalog-panel label { display: block; margin: 12px 0 6px; color: #d9d6f3; }
+    .catalog-panel select, .catalog-panel input, .catalog-panel textarea { width: 100%; background: #15151f; color: white; border: 1px solid #55556b; border-radius: 6px; padding: 10px; font-family: inherit; }
+    .catalog-panel textarea { min-height: 95px; }
+    .catalog-panel #catalogDefinition { font-family: monospace; min-height: 220px; font-size: 13px; }
+    .catalog-list { display: grid; gap: 6px; max-height: 470px; overflow-y: auto; }
+    .catalog-list button { margin: 0; text-align: left; overflow-wrap: anywhere; background: #343449; }
+    .catalog-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    #catalogDelete { background: #823c4c; }
+    #catalogStatus { min-height: 22px; color: #c4c4d5; overflow-wrap: anywhere; }
+    @media (max-width: 650px) { .catalog-layout { grid-template-columns: 1fr; } }
   </style>
 </head>
 
@@ -313,6 +328,42 @@
     <p id="typeChartStatus" role="status">Cargando tabla de tipos...</p>
     <button type="button" id="resetTypeChart" disabled>Restablecer todas las casillas a neutral</button>
     <p class="help">La tabla se guarda automáticamente como borrador privado. Una inmunidad defensiva anula el daño incluso si la entidad tiene otros tipos.</p>
+  </section>
+
+
+  <section class="panel catalog-panel" aria-labelledby="catalogHeading">
+    <h2 id="catalogHeading">Catálogo de contenido</h2>
+    <p class="help">Creá y guardá definiciones privadas. Por ahora son datos reutilizables: el motor de combate todavía no las ejecuta.</p>
+    <div class="catalog-layout">
+      <div>
+        <label for="catalogCategory">Categoría</label>
+        <select id="catalogCategory">
+          <option value="effects">Efectos</option><option value="moves">Ataques</option>
+          <option value="abilities">Habilidades</option><option value="entities">Entidades</option>
+          <option value="weathers">Climas</option><option value="fields">Campos</option>
+          <option value="scenarios">Escenarios</option><option value="statuses">Estados alterados</option>
+        </select>
+        <p class="help">Elementos guardados</p>
+        <div class="catalog-list" id="catalogList"></div>
+        <button type="button" id="catalogNew">+ Nuevo elemento</button>
+      </div>
+      <div>
+        <label for="catalogId">Identificador (minúsculas, números y guiones)</label>
+        <input id="catalogId" maxlength="60" placeholder="ejemplo: absorcion-lluvia" autocomplete="off">
+        <label for="catalogName">Nombre</label>
+        <input id="catalogName" maxlength="100" placeholder="Nombre visible" autocomplete="off">
+        <label for="catalogDescription">Descripción</label>
+        <textarea id="catalogDescription" rows="3" placeholder="¿Qué hace?"></textarea>
+        <label for="catalogDefinition">Configuración JSON (modo avanzado provisional)</label>
+        <textarea id="catalogDefinition" spellcheck="false">{}</textarea>
+        <p class="help">Podés guardar referencias como <code>spriteId</code>, <code>moveIds</code> o <code>abilityIds</code>. Todavía no se validan sus relaciones ni se ejecutan en batalla.</p>
+        <div class="catalog-actions">
+          <button type="button" id="catalogSave">Guardar elemento</button>
+          <button type="button" id="catalogDelete" disabled>Eliminar elemento</button>
+        </div>
+        <p id="catalogStatus" role="status">Seleccioná una categoría para comenzar.</p>
+      </div>
+    </div>
   </section>
 
   <script>
@@ -629,7 +680,7 @@ const response = await fetch(
       ["hielo", "Hielo"], ["rayo", "Rayo"], ["metal", "Metal"],
       ["guerra", "Guerra"], ["mente", "Mente"], ["encanto", "Encanto"],
       ["espectro", "Espectro"], ["divinidad", "Divinidad"], ["luz", "Luz"],
-      ["oscuridad", "Oscuridad"], ["aire", "Aire"], ["dragon", "Dragón"],
+      ["oscuridad", "Oscuridad"], ["viento", "Viento"], ["dragon", "Dragón"],
       ["agua", "Agua"], ["veneno", "Veneno"],
       ["tecnologia", "Tecnología"], ["agilidad", "Agilidad"],
       ["espiritu", "Espíritu"]
@@ -788,6 +839,84 @@ const response = await fetch(
     });
 
     loadTypeChart();
+
+
+    // Catálogo privado. Las definiciones son datos, no código ejecutable.
+    const catalogCategory = document.getElementById("catalogCategory");
+    const catalogList = document.getElementById("catalogList");
+    const catalogId = document.getElementById("catalogId");
+    const catalogName = document.getElementById("catalogName");
+    const catalogDescription = document.getElementById("catalogDescription");
+    const catalogDefinition = document.getElementById("catalogDefinition");
+    const catalogStatus = document.getElementById("catalogStatus");
+    const catalogDelete = document.getElementById("catalogDelete");
+    const catalogSave = document.getElementById("catalogSave");
+    let selectedCatalogId = null;
+    function resetCatalogForm() {
+      selectedCatalogId = null;
+      catalogId.value = ""; catalogId.disabled = false;
+      catalogName.value = ""; catalogDescription.value = "";
+      catalogDefinition.value = "{}"; catalogDelete.disabled = true;
+    }
+    function catalogUrl(id = "") { return "/editor-api/catalog/" + catalogCategory.value + (id ? "/" + encodeURIComponent(id) : ""); }
+    async function loadCatalog() {
+      resetCatalogForm();
+      catalogList.replaceChildren();
+      catalogStatus.textContent = "Cargando catálogo...";
+      try {
+        const response = await fetch(catalogUrl(), { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || "No se pudo consultar.");
+        for (const entry of data.entries.sort((a,b) => a.name.localeCompare(b.name))) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = entry.name + " (" + entry.id + ")";
+          button.addEventListener("click", () => {
+            selectedCatalogId = entry.id;
+            catalogId.value = entry.id; catalogId.disabled = true;
+            catalogName.value = entry.name;
+            catalogDescription.value = entry.description;
+            catalogDefinition.value = JSON.stringify(entry.definition, null, 2);
+            catalogDelete.disabled = false;
+            catalogStatus.textContent = "Elemento cargado: " + entry.name;
+          });
+          catalogList.append(button);
+        }
+        if (data.cursor) catalogStatus.textContent = "Hay más de 1000 registros. Se necesita paginación para mostrarlos todos.";
+        else catalogStatus.textContent = data.entries.length + " elementos cargados.";
+      } catch (error) { catalogStatus.textContent = "Error: " + error.message; }
+    }
+    catalogCategory.addEventListener("change", loadCatalog);
+    document.getElementById("catalogNew").addEventListener("click", () => { resetCatalogForm(); catalogStatus.textContent = "Nuevo elemento sin guardar."; });
+    catalogSave.addEventListener("click", async () => {
+      const id = catalogId.value.trim();
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) || id.length > 60) { catalogStatus.textContent = "Identificador inválido."; return; }
+      if (!catalogName.value.trim()) { catalogStatus.textContent = "Escribí un nombre."; return; }
+      let definition;
+      try { definition = JSON.parse(catalogDefinition.value); if (!definition || typeof definition !== "object" || Array.isArray(definition)) throw Error(); }
+      catch { catalogStatus.textContent = "La configuración debe ser un objeto JSON válido."; return; }
+      catalogSave.disabled = true;
+      catalogStatus.textContent = "Guardando...";
+      try {
+        const response = await fetch(catalogUrl(id), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: catalogName.value, description: catalogDescription.value, definition }) });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || "No se pudo guardar.");
+        await loadCatalog();
+        const savedButton = [...catalogList.children].find(button => button.textContent.endsWith("(" + id + ")"));
+        if (savedButton) savedButton.click();
+        catalogStatus.textContent = "Guardado en KV ✓";
+      } catch (error) { catalogStatus.textContent = "Error: " + error.message; }
+      finally { catalogSave.disabled = false; }
+    });
+    catalogDelete.addEventListener("click", async () => {
+      if (!selectedCatalogId || !confirm("¿Eliminar " + selectedCatalogId + "? Esta acción no se puede deshacer.")) return;
+      try {
+        const response = await fetch(catalogUrl(selectedCatalogId), { method: "DELETE" });
+        if (!response.ok) throw new Error("No se pudo eliminar.");
+        await loadCatalog(); catalogStatus.textContent = "Elemento eliminado.";
+      } catch (error) { catalogStatus.textContent = "Error: " + error.message; }
+    });
+    loadCatalog();
 
     // Iniciar editor.
     loadDraft();
