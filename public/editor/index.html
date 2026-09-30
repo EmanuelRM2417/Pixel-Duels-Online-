@@ -202,6 +202,18 @@
     .catalog-actions { display: flex; flex-wrap: wrap; gap: 10px; }
     #catalogDelete { background: #823c4c; }
     #catalogStatus { min-height: 22px; color: #c4c4d5; overflow-wrap: anywhere; }
+    .builder { border: 1px solid #50506b; border-radius: 9px; padding: 13px; margin: 14px 0; background: #1d1d2b; }
+    .builder h3 { margin: 0 0 8px; color: #c5bcff; }
+    .builder-row { border: 1px solid #44445c; background: #29293b; border-radius: 7px; padding: 12px; margin: 10px 0; }
+    .builder-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+    .builder-grid label { margin: 0; font-size: 13px; }
+    .builder-grid input, .builder-grid select { margin-top: 5px; }
+    .builder-row > button { background: #6b3946; padding: 7px 12px; }
+    .builder > button { padding: 9px 13px; }
+    .builder-note { color: #b8b5ce; font-size: 12px; line-height: 1.5; }
+    #catalogDefinition { display: none; }
+    #advancedToggle { background: #41415e; font-size: 12px; padding: 8px 12px; }
+    @media (max-width: 650px) { .builder-grid { grid-template-columns: 1fr; } }
     @media (max-width: 650px) { .catalog-layout { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -333,7 +345,8 @@
 
   <section class="panel catalog-panel" aria-labelledby="catalogHeading">
     <h2 id="catalogHeading">Catálogo de contenido</h2>
-    <p class="help">Creá y guardá definiciones privadas. Por ahora son datos reutilizables: el motor de combate todavía no las ejecuta.</p>
+    <p class="help">Creá y guardá definiciones privadas. Los elementos se guardan en KV. El simulador privado interpreta un subconjunto de acciones y condiciones; otras quedan guardadas para el motor completo.</p>
+    <datalist id="moveReferences"></datalist>
     <div class="catalog-layout">
       <div>
         <label for="catalogCategory">Categoría</label>
@@ -354,9 +367,17 @@
         <input id="catalogName" maxlength="100" placeholder="Nombre visible" autocomplete="off">
         <label for="catalogDescription">Descripción</label>
         <textarea id="catalogDescription" rows="3" placeholder="¿Qué hace?"></textarea>
-        <label for="catalogDefinition">Configuración JSON (modo avanzado provisional)</label>
+        <div class="builder" id="catalogBuilder">
+          <h3>Configuración visual</h3>
+          <p class="builder-note">Elegí las piezas y combiná reglas. Podés combinar reglas; el simulador interpreta las operaciones indicadas en su documentación.</p>
+          <div id="builderBasics"></div>
+          <div id="builderRules"></div>
+          <button type="button" id="builderAddRule">+ Agregar regla</button>
+        </div>
+        <button type="button" id="advancedToggle" aria-expanded="false">Mostrar JSON avanzado</button>
+        <label for="catalogDefinition" id="advancedLabel" hidden>Configuración JSON (avanzado)</label>
         <textarea id="catalogDefinition" spellcheck="false">{}</textarea>
-        <p class="help">Podés guardar referencias como <code>spriteId</code>, <code>moveIds</code> o <code>abilityIds</code>. Todavía no se validan sus relaciones ni se ejecutan en batalla.</p>
+        <p class="builder-note">Los identificadores de sprites, ataques y habilidades se vinculan por su ID. Elegí referencias existentes. La validación de relaciones se hace al guardar y el simulador avisa si falta una referencia.</p>
         <div class="catalog-actions">
           <button type="button" id="catalogSave">Guardar elemento</button>
           <button type="button" id="catalogDelete" disabled>Eliminar elemento</button>
@@ -364,6 +385,25 @@
         <p id="catalogStatus" role="status">Seleccioná una categoría para comenzar.</p>
       </div>
     </div>
+  </section>
+
+  <section class="panel" aria-labelledby="simHeading">
+    <h2 id="simHeading">Laboratorio de batalla · Singles</h2>
+    <p class="help">Prueba privada de dos entidades del catálogo, con ataques automáticos, estadísticas, tabla de tipos y reglas compatibles. No modifica el juego público ni concede recompensas.</p>
+    <div class="builder-grid">
+      <label>Entidad izquierda <select id="simLeft"></select></label>
+      <label>Entidad derecha <select id="simRight"></select></label>
+      <label>Ataque izquierda <select id="simLeftMove"><option value="">Automático</option></select></label>
+      <label>Ataque derecha <select id="simRightMove"><option value="">Automático</option></select></label>
+      <label>Rondas máximas <input id="simTurns" type="number" min="1" max="50" value="10"></label>
+      <label>Semilla reproducible <input id="simSeed" type="number" value="12345"></label>
+      <label>Clima inicial <select id="simWeather"><option value="">Ninguno</option></select></label>
+      <label>Campo inicial <select id="simField"><option value="">Ninguno</option></select></label>
+    </div>
+    <button type="button" id="simRun">Simular batalla</button>
+    <p id="simStatus" role="status">Elegí dos entidades completas para comenzar.</p>
+    <pre id="simLog" style="white-space:pre-wrap;max-height:420px;overflow:auto" aria-label="Registro de combate"></pre>
+    <p class="help">Alcance actual: 1 contra 1; elige automáticamente el primer ataque ofensivo o el que elijás, usa PS enteros, prioridad, Velocidad, crítico, STAB y modificadores de tipo aditivos. Las acciones admitidas son daño, curación, cambio de estadísticas, estado, eliminación de estado, clima, campo, supresión temporal, restricción temporal y efectos reutilizables. No incluye aún cambios, Doubles, selección de ataque por turno ni todas las reglas avanzadas.</p>
   </section>
 
   <script>
@@ -841,7 +881,7 @@ const response = await fetch(
     loadTypeChart();
 
 
-    // Catálogo privado. Las definiciones son datos, no código ejecutable.
+    // Catálogo privado: formulario visual y modo JSON avanzado opcional.
     const catalogCategory = document.getElementById("catalogCategory");
     const catalogList = document.getElementById("catalogList");
     const catalogId = document.getElementById("catalogId");
@@ -851,57 +891,218 @@ const response = await fetch(
     const catalogStatus = document.getElementById("catalogStatus");
     const catalogDelete = document.getElementById("catalogDelete");
     const catalogSave = document.getElementById("catalogSave");
+    const builderBasics = document.getElementById("builderBasics");
+    const builderRules = document.getElementById("builderRules");
+    const advancedToggle = document.getElementById("advancedToggle");
     let selectedCatalogId = null;
+    let loadedDefinition = {};
+    let advancedMode = false;
+    let catalogLoadSequence = 0;
+    const typeOptions = chartTypes.map(([id,label]) => [id,label]);
+    const statOptions = [["hp","PS"],["attack","Ataque"],["defense","Defensa"],["specialAttack","Ataque especial"],["specialDefense","Defensa especial"],["speed","Velocidad"]];
+    const eventOptions = [["on_enter","Al entrar al campo"],["on_exit","Al salir del campo"],["turn_start","Inicio de turno"],["turn_end","Final de turno"],["round_end","Final de ronda"],["on_attack","Al atacar"],["on_hit","Al acertar"],["on_damage_taken","Al recibir daño"],["on_stat_drop","Al perder estadísticas"],["on_status","Al recibir un estado"],["on_switch","Al cambiar"],["on_ko","Al debilitar a alguien"],["manual","Al usar el ataque"]];
+    const conditionOptions = [["always","Siempre"],["hp_below","PS por debajo de (%)"],["hp_above","PS por encima de (%)"],["weather_is","Clima activo (ID)"],["field_is","Campo activo (ID)"],["has_status","Tiene estado (ID)"],["has_type","Tiene tipo (ID)"],["was_hit_by_type","Recibió tipo (ID)"],["stat_below","Estadística por debajo de"],["custom","Condición personalizada (ID)"]];
+    const targetOptions = [["self","Usuario"],["target","Objetivo"],["ally","Aliado"],["opponents","Rivales"],["all_allies","Aliados"],["all_active","Todos en campo"],["field","Campo"],["reserve","Reserva"]];
+    const actionOptions = [["damage","Causar daño"],["heal","Recuperar PS"],["stat_change","Modificar estadística"],["apply_status","Aplicar estado"],["remove_status","Eliminar estado"],["apply_effect","Aplicar efecto (ID)"],["remove_effect","Eliminar efecto (ID)"],["set_weather","Cambiar clima (ID)"],["set_field","Cambiar campo (ID)"],["suppress_abilities","Anular habilidades"],["restrict_moves","Restringir movimientos"],["change_critical","Modificar crítico"],["custom","Acción personalizada (ID)"]];
+    const categoryBasics = {
+      entities: [["spriteId","ID del sprite","text"],["types","Tipos (hasta 3)","types"],["hp","PS base","number"],["attack","Ataque base","number"],["defense","Defensa base","number"],["specialAttack","Ataque especial base","number"],["specialDefense","Defensa especial base","number"],["speed","Velocidad base","number"],["globalAbilityId","ID habilidad global","text"],["uniqueAbilityId","ID habilidad exclusiva","text"],["moveIds","IDs de 3 ataques globales","ids"],["uniqueMoveId","ID ataque exclusivo","text"]],
+      moves: [["type","Tipo del ataque","type"],["category","Categoría","category"],["power","Potencia","number"],["accuracy","Precisión (%)","number"],["criticalChance","Probabilidad crítico (%)","number"],["priority","Prioridad","number"]],
+      abilities: [["kind","Clase de habilidad","abilityKind"]],
+      effects: [], weathers: [["duration","Duración (rondas, 0 = indefinida)","number"]],
+      fields: [["duration","Duración (rondas, 0 = indefinida)","number"]],
+      scenarios: [["imageId","ID de imagen / recurso","text"]],
+      statuses: [["duration","Duración predeterminada (rondas)","number"]]
+    };
+    function optionSelect(options, value) {
+      const select = document.createElement("select");
+      for (const [id,label] of options) { const option = new Option(label,id); select.add(option); }
+      if (value != null && !options.some(([id]) => id === String(value))) {
+        select.add(new Option("Otro: " + value, String(value)));
+      }
+      select.value = value == null ? options[0][0] : String(value);
+      return select;
+    }
+    const referenceCategories = {globalAbilityId:'abilities',uniqueAbilityId:'abilities',uniqueMoveId:'moves',spriteId:null};
+    const cachedCatalog = {};
+    async function refreshReferences() {
+      await Promise.all(['moves','abilities','entities','weathers','fields','effects','statuses'].map(async cat => {
+        try {const r=await fetch('/editor-api/catalog/'+cat,{cache:'no-store'});if(r.ok)cachedCatalog[cat]=(await r.json()).entries||[];}catch{}
+      }));
+      for (const control of document.querySelectorAll('[data-ref-category]')) fillReference(control,control.dataset.refCategory,control.value);
+      const datalist=document.getElementById('moveReferences');datalist.replaceChildren();
+      for(const entry of cachedCatalog.moves||[]) {const option=document.createElement('option');option.value=entry.id;option.label=entry.name;datalist.append(option);}
+      for (const [id,cat] of [['simLeft','entities'],['simRight','entities'],['simWeather','weathers'],['simField','fields']]) {
+        const control=document.getElementById(id);if(!control)continue;
+        fillReference(control,cat,control.value,cat==='weathers'||cat==='fields');
+      }
+      refreshSimMoves();
+    }
+    function fillReference(select,category,value,allowEmpty=false) {
+      const entries=cachedCatalog[category]||[];
+      select.replaceChildren();
+      if(allowEmpty)select.add(new Option('Ninguno',''));
+      for(const entry of entries) select.add(new Option(entry.name+' ('+entry.id+')',entry.id));
+      if(value && !entries.some(e=>e.id===value)) select.add(new Option('⚠ No encontrado: '+value,value));
+      select.value=value|| (allowEmpty?'':entries[0]?.id||'');
+    }
+    function fieldControl(kind,value) {
+      if (kind === "type") return optionSelect(typeOptions,value);
+      if (kind === "category") return optionSelect([["physical","Físico"],["special","Especial"],["status","Estado"]],value);
+      if (kind === "abilityKind") return optionSelect([["global","Global"],["unique","Exclusiva"]],value);
+      if (kind === "types") {
+        const box = document.createElement("div"); box.className = "builder-grid";
+        const values = Array.isArray(value) ? value : [];
+        for (let i=0;i<3;i++) { const choices = [["","Sin tipo"],...typeOptions]; const select = optionSelect(choices,values[i] || ""); select.dataset.typeSlot = String(i); box.append(select); }
+        return box;
+      }
+      const input = document.createElement("input");
+      input.type = kind === "number" ? "number" : "text";
+      if (kind === "number") input.step = "any";
+      input.value = kind === "ids" ? (Array.isArray(value) ? value.join(", ") : "") : (value ?? "");
+      if (kind === "ids") {input.placeholder = "id-uno, id-dos, id-tres";input.setAttribute('list','moveReferences');}
+      return input;
+    }
+    function addBasicFields(definition) {
+      builderBasics.replaceChildren();
+      const fields = categoryBasics[catalogCategory.value] || [];
+      if (!fields.length) return;
+      const grid = document.createElement("div"); grid.className = "builder-grid";
+      for (const [key,label,kind] of fields) {
+        const wrapper = document.createElement("label"); wrapper.textContent = label;
+        let control;
+        if (referenceCategories[key]) {control=document.createElement('select');control.dataset.refCategory=referenceCategories[key];fillReference(control,referenceCategories[key],definition[key]);}
+        else control=fieldControl(kind,definition[key]);
+        control.dataset.basicKey = key; control.dataset.basicKind = kind;
+        wrapper.append(control); grid.append(wrapper);
+      }
+      builderBasics.append(grid);
+    }
+    function labeledControl(grid,label,control,key) {
+      const wrapper = document.createElement("label"); wrapper.textContent = label;
+      control.dataset.ruleKey = key; wrapper.append(control); grid.append(wrapper); return control;
+    }
+    function addRule(rule = {}) {
+      const row = document.createElement("div"); row.className = "builder-row";
+      const grid = document.createElement("div"); grid.className = "builder-grid";
+      labeledControl(grid,"Evento",optionSelect(eventOptions,rule.event),"event");
+      labeledControl(grid,"Condición",optionSelect(conditionOptions,rule.condition?.type || "always"),"conditionType");
+      labeledControl(grid,"Valor de condición",fieldControl("text",rule.condition?.value),"conditionValue");
+      labeledControl(grid,"Objetivo",optionSelect(targetOptions,rule.target),"target");
+      labeledControl(grid,"Acción",optionSelect(actionOptions,rule.action?.type || "damage"),"actionType");
+      labeledControl(grid,"Valor de acción / ID",fieldControl("text",rule.action?.value),"actionValue");
+      labeledControl(grid,"Operador del grupo",optionSelect([["AND","Y"],["OR","O"]],rule.operator||"AND"),"operator");
+      labeledControl(grid,"Negar condición",optionSelect([["false","No"],["true","Sí"]],String(rule.negate||false)),"negate");
+      labeledControl(grid,"Estadística (si aplica)",optionSelect([["","Ninguna"],...statOptions],rule.action?.stat || ""),"stat");
+      labeledControl(grid,"Probabilidad (%)",fieldControl("number",rule.chance ?? 100),"chance");
+      labeledControl(grid,"Duración (rondas)",fieldControl("number",rule.duration ?? 0),"duration");
+      labeledControl(grid,"Límite de activaciones (0 = sin límite)",fieldControl("number",rule.limit ?? 0),"limit");
+      const extra=document.createElement('div');extra.className='builder-grid';extra.dataset.extraConditions='';
+      function appendCondition(c={}) {
+        const item=document.createElement('div');item.className='builder-row';
+        const operator=optionSelect([["AND","Y"],["OR","O"]],c.operator||'AND');operator.dataset.conditionPart='operator';
+        const type=optionSelect(conditionOptions,c.type||'always');type.dataset.conditionPart='type';
+        const value=fieldControl('text',c.value);value.dataset.conditionPart='value';value.placeholder='Valor / ID';
+        const negate=document.createElement('input');negate.type='checkbox';negate.checked=!!c.negate;negate.dataset.conditionPart='negate';
+        const label=document.createElement('label');label.textContent='NO';label.append(negate);
+        const del=document.createElement('button');del.type='button';del.textContent='Quitar condición';del.addEventListener('click',()=>item.remove());
+        item.append(operator,type,value,label,del);extra.append(item);
+      }
+      for(const c of rule.conditions||[]) appendCondition(c);
+      const addCondition=document.createElement('button');addCondition.type='button';addCondition.textContent='+ Condición adicional (Y / O / NO)';addCondition.addEventListener('click',()=>appendCondition());
+      const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "Quitar regla"; remove.addEventListener("click",()=>row.remove());
+      row.append(grid,extra,addCondition,remove); builderRules.append(row);
+    }
+    function renderBuilder(definition) {
+      loadedDefinition = structuredClone(definition);
+      addBasicFields(definition);
+      builderRules.replaceChildren();
+      for (const rule of Array.isArray(definition.rules) ? definition.rules : []) addRule(rule);
+      catalogDefinition.value = JSON.stringify(definition,null,2);
+    }
+    function readBuilder() {
+      const result = structuredClone(loadedDefinition);
+      for (const control of builderBasics.querySelectorAll("[data-basic-key]")) {
+        const key = control.dataset.basicKey, kind = control.dataset.basicKind;
+        if (kind === "types") {
+          result[key] = [...control.querySelectorAll("[data-type-slot]")].map(x=>x.value).filter(Boolean);
+        } else if (kind === "ids") result[key] = control.value.split(",").map(x=>x.trim()).filter(Boolean);
+        else if (kind === "number") result[key] = control.value === "" ? null : Number(control.value);
+        else result[key] = control.value.trim();
+      }
+      result.rules = [...builderRules.children].map(row => {
+        const val = key => row.querySelector(`[data-rule-key="${key}"]`).value;
+        return {
+          event: val("event"), condition: {type:val("conditionType"),value:val("conditionValue")},
+          conditions: [...row.querySelectorAll('[data-extra-conditions] > .builder-row')].map(item=>({operator:item.querySelector('[data-condition-part="operator"]').value,type:item.querySelector('[data-condition-part="type"]').value,value:item.querySelector('[data-condition-part="value"]').value,negate:item.querySelector('[data-condition-part="negate"]').checked})),
+          target:val("target"), action:{type:val("actionType"),value:val("actionValue"),stat:val("stat")},
+          chance:Number(val("chance")),duration:Number(val("duration")),limit:Number(val("limit")),operator:val("operator"),negate:val("negate")==="true"
+        };
+      });
+      return result;
+    }
     function resetCatalogForm() {
       selectedCatalogId = null;
       catalogId.value = ""; catalogId.disabled = false;
       catalogName.value = ""; catalogDescription.value = "";
-      catalogDefinition.value = "{}"; catalogDelete.disabled = true;
+      catalogDelete.disabled = true; renderBuilder({});
     }
     function catalogUrl(id = "") { return "/editor-api/catalog/" + catalogCategory.value + (id ? "/" + encodeURIComponent(id) : ""); }
     async function loadCatalog() {
-      resetCatalogForm();
-      catalogList.replaceChildren();
-      catalogStatus.textContent = "Cargando catálogo...";
+      const seq = ++catalogLoadSequence;
+      resetCatalogForm(); catalogList.replaceChildren(); catalogStatus.textContent = "Cargando catálogo...";
+      const category = catalogCategory.value;
       try {
         const response = await fetch(catalogUrl(), { cache: "no-store" });
         const data = await response.json();
         if (!response.ok || !data.ok) throw new Error(data.error || "No se pudo consultar.");
+        if (seq !== catalogLoadSequence || category !== catalogCategory.value) return;
         for (const entry of data.entries.sort((a,b) => a.name.localeCompare(b.name))) {
-          const button = document.createElement("button");
-          button.type = "button";
+          const button = document.createElement("button"); button.type = "button";
           button.textContent = entry.name + " (" + entry.id + ")";
           button.addEventListener("click", () => {
-            selectedCatalogId = entry.id;
-            catalogId.value = entry.id; catalogId.disabled = true;
-            catalogName.value = entry.name;
-            catalogDescription.value = entry.description;
-            catalogDefinition.value = JSON.stringify(entry.definition, null, 2);
-            catalogDelete.disabled = false;
+            selectedCatalogId = entry.id; catalogId.value = entry.id; catalogId.disabled = true;
+            catalogName.value = entry.name; catalogDescription.value = entry.description;
+            renderBuilder(entry.definition); catalogDelete.disabled = false;
             catalogStatus.textContent = "Elemento cargado: " + entry.name;
           });
           catalogList.append(button);
         }
-        if (data.cursor) catalogStatus.textContent = "Hay más de 1000 registros. Se necesita paginación para mostrarlos todos.";
-        else catalogStatus.textContent = data.entries.length + " elementos cargados.";
-      } catch (error) { catalogStatus.textContent = "Error: " + error.message; }
+        catalogStatus.textContent = data.cursor ? "Hay más de 1000 registros; falta paginación." : data.entries.length + " elementos cargados.";
+      } catch (error) { if (seq === catalogLoadSequence) catalogStatus.textContent = "Error: " + error.message; }
     }
     catalogCategory.addEventListener("change", loadCatalog);
     document.getElementById("catalogNew").addEventListener("click", () => { resetCatalogForm(); catalogStatus.textContent = "Nuevo elemento sin guardar."; });
+    document.getElementById("builderAddRule").addEventListener("click",()=>addRule());
+    advancedToggle.addEventListener("click", () => {
+      if (!advancedMode) catalogDefinition.value = JSON.stringify(readBuilder(),null,2);
+      advancedMode = !advancedMode;
+      catalogDefinition.style.display = advancedMode ? "block" : "none";
+      document.getElementById("advancedLabel").hidden = !advancedMode;
+      document.getElementById("catalogBuilder").style.display = advancedMode ? "none" : "block";
+      advancedToggle.setAttribute("aria-expanded",String(advancedMode));
+      advancedToggle.textContent = advancedMode ? "Volver al formulario visual" : "Mostrar JSON avanzado";
+      if (!advancedMode) {
+        try { const parsed = JSON.parse(catalogDefinition.value); if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw Error(); renderBuilder(parsed); }
+        catch { advancedMode = true; catalogDefinition.style.display = "block"; document.getElementById("advancedLabel").hidden = false; document.getElementById("catalogBuilder").style.display = "none"; advancedToggle.textContent = "Volver al formulario visual"; advancedToggle.setAttribute("aria-expanded","true"); catalogStatus.textContent = "Corregí el JSON antes de volver al formulario."; }
+      }
+    });
     catalogSave.addEventListener("click", async () => {
       const id = catalogId.value.trim();
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) || id.length > 60) { catalogStatus.textContent = "Identificador inválido."; return; }
       if (!catalogName.value.trim()) { catalogStatus.textContent = "Escribí un nombre."; return; }
       let definition;
-      try { definition = JSON.parse(catalogDefinition.value); if (!definition || typeof definition !== "object" || Array.isArray(definition)) throw Error(); }
-      catch { catalogStatus.textContent = "La configuración debe ser un objeto JSON válido."; return; }
-      catalogSave.disabled = true;
-      catalogStatus.textContent = "Guardando...";
+      try {
+        definition = advancedMode ? JSON.parse(catalogDefinition.value) : readBuilder();
+        if (!definition || typeof definition !== "object" || Array.isArray(definition)) throw Error();
+        if (Array.isArray(definition.rules) && definition.rules.some(rule => rule.chance < 0 || rule.chance > 100 || rule.duration < 0 || rule.limit < 0)) throw Error("Probabilidad, duración o límite inválidos.");
+      } catch (error) { catalogStatus.textContent = error.message || "Configuración inválida."; return; }
+      catalogSave.disabled = true; catalogStatus.textContent = "Guardando...";
       try {
         const response = await fetch(catalogUrl(id), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: catalogName.value, description: catalogDescription.value, definition }) });
         const data = await response.json();
         if (!response.ok || !data.ok) throw new Error(data.error || "No se pudo guardar.");
         await loadCatalog();
+        await refreshReferences();
         const savedButton = [...catalogList.children].find(button => button.textContent.endsWith("(" + id + ")"));
         if (savedButton) savedButton.click();
         catalogStatus.textContent = "Guardado en KV ✓";
@@ -913,10 +1114,35 @@ const response = await fetch(
       try {
         const response = await fetch(catalogUrl(selectedCatalogId), { method: "DELETE" });
         if (!response.ok) throw new Error("No se pudo eliminar.");
-        await loadCatalog(); catalogStatus.textContent = "Elemento eliminado.";
+        await loadCatalog(); await refreshReferences(); catalogStatus.textContent = "Elemento eliminado.";
       } catch (error) { catalogStatus.textContent = "Error: " + error.message; }
     });
+    function refreshSimMoves() {
+      for(const [side,entityId] of [['simLeftMove','simLeft'],['simRightMove','simRight']]) {
+        const select=document.getElementById(side),chosen=select.value;
+        const entity=(cachedCatalog.entities||[]).find(e=>e.id===document.getElementById(entityId).value);
+        select.replaceChildren(new Option('Automático',''));
+        for(const id of [...(entity?.definition?.moveIds||[]),entity?.definition?.uniqueMoveId].filter(Boolean)) {
+          const move=(cachedCatalog.moves||[]).find(m=>m.id===id);
+          select.add(new Option(move?.name||id,id));
+        }
+        select.value=[...select.options].some(o=>o.value===chosen)?chosen:'';
+      }
+    }
+    document.getElementById('simLeft').addEventListener('change',refreshSimMoves);
+    document.getElementById('simRight').addEventListener('change',refreshSimMoves);
+    document.getElementById('simRun').addEventListener('click',async()=>{
+      const status=document.getElementById('simStatus'),log=document.getElementById('simLog');
+      status.textContent='Simulando...';log.textContent='';
+      try {
+        const response=await fetch('/editor-api/simulate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({left:document.getElementById('simLeft').value,right:document.getElementById('simRight').value,turns:Number(document.getElementById('simTurns').value),seed:Number(document.getElementById('simSeed').value),weather:document.getElementById('simWeather').value,field:document.getElementById('simField').value,leftMove:document.getElementById('simLeftMove').value,rightMove:document.getElementById('simRightMove').value})});
+        const data=await response.json();if(!response.ok)throw Error(data.error||'Error de simulación');
+        status.textContent=`${data.left.name}: ${data.left.hp}/${data.left.maxHp} PS · ${data.right.name}: ${data.right.hp}/${data.right.maxHp} PS · Ganador: ${data.winner||'Empate'}`;
+        log.textContent=data.log.join('\n');
+      }catch(e){status.textContent='Error: '+e.message;}
+    });
     loadCatalog();
+    refreshReferences();
 
     // Iniciar editor.
     loadDraft();
