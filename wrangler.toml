@@ -18,3 +18,7 @@ id = "1173494a63814d1b9093b9a409cf2832"
 directory = "./public"
 binding = "ASSETS"
 run_worker_first = ["/api/*", "/health", "/editor-api/*"]
+
+[vars]
+ACCESS_TEAM_DOMAIN = "TU_EQUIPO.cloudflareaccess.com"
+ACCESS_AUD = "TU_AUD"
