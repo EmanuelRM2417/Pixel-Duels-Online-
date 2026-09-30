@@ -1,3 +1,4 @@
+import { validateDefinition } from "./catalog-validation.js";
 import { simulate } from "./battle-engine.js";
 
 import { createRemoteJWKSet, jwtVerify } from "jose";
@@ -119,6 +120,35 @@ export default {
         });
       }
 
+
+      // Sprites de tipos: recursos privados independientes de los sprites de entidades.
+      // Se permite reemplazarlos expresamente; no se alteran los valores de la tabla.
+      const typeIds = new Set(["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","espiritu"]);
+      if (url.pathname === "/editor-api/type-icons" && request.method === "GET") {
+        if (!env.EDITOR_SPRITES) return privateJson({error:"Almacenamiento R2 no conectado."},500);
+        const objects = await env.EDITOR_SPRITES.list({prefix:"type-icons/",limit:100});
+        return privateJson({ok:true,types:objects.objects.map(o=>o.key.slice(11).replace(/\.png$/,"" )).filter(id=>typeIds.has(id))});
+      }
+      const iconMatch=url.pathname.match(/^\/editor-api\/type-icons\/([a-z]+)$/);
+      if(iconMatch){
+        const id=iconMatch[1];if(!typeIds.has(id))return privateJson({error:"Tipo desconocido."},400);
+        if(!env.EDITOR_SPRITES)return privateJson({error:"Almacenamiento R2 no conectado."},500);
+        const key=`type-icons/${id}.png`;
+        if(request.method==="GET"){
+          const obj=await env.EDITOR_SPRITES.get(key);if(!obj)return privateJson({error:"Sprite no encontrado."},404);
+          return new Response(obj.body,{headers:{"Content-Type":"image/png","Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
+        }
+        if(request.method==="PUT"){
+          if(request.headers.get("Origin")!==url.origin)return privateJson({error:"Origen no autorizado."},403);
+          if(!(request.headers.get("Content-Type")||"").toLowerCase().startsWith("image/png"))return privateJson({error:"Solo PNG."},415);
+          const length=Number(request.headers.get("Content-Length")||0);if(length>2*1024*1024)return privateJson({error:"PNG demasiado grande."},413);
+          const bytes=await request.arrayBuffer();if(!bytes.byteLength||bytes.byteLength>2*1024*1024)return privateJson({error:"El PNG debe pesar entre 1 byte y 2 MB."},413);
+          const sig=new Uint8Array(bytes).slice(0,8);if(![137,80,78,71,13,10,26,10].every((x,i)=>sig[i]===x))return privateJson({error:"Firma PNG inválida."},415);
+          await env.EDITOR_SPRITES.put(key,bytes,{httpMetadata:{contentType:"image/png"}});
+          return privateJson({ok:true,type:id,message:"Sprite guardado."});
+        }
+        return privateJson({error:"Método no permitido."},405);
+      }
 
       // Subir imagen original de una entidad.
 if (
@@ -296,11 +326,13 @@ if (
       if (url.pathname === "/editor-api/simulate" && request.method === "POST") {
         if (request.headers.get("Origin") !== url.origin) return privateJson({error:"Origen no autorizado."},403);
         let input;
-        try { const raw=await request.text(); if(raw.length>5000) return privateJson({error:"Solicitud demasiado grande."},413); input=JSON.parse(raw); }
+        try { const raw=await request.text(); if(raw.length>20000) return privateJson({error:"Solicitud demasiado grande."},413); input=JSON.parse(raw); }
         catch { return privateJson({error:"Solicitud inválida."},400); }
         const idPattern=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
         if (!idPattern.test(input?.left||"") || !idPattern.test(input?.right||"")) return privateJson({error:"Elegí dos entidades válidas."},400);
-        const ids={entities:[input.left,input.right],moves:[],abilities:[],effects:[]};
+        const allIds=[...(Array.isArray(input.leftTeam)?input.leftTeam:[input.left]),...(Array.isArray(input.rightTeam)?input.rightTeam:[input.right])];
+        if(allIds.length>16||allIds.some(id=>!idPattern.test(id||"")))return privateJson({error:"Equipo inválido."},400);
+        const ids={entities:[...new Set(allIds)],moves:[],abilities:[],effects:[]};
         const catalog={entities:{},moves:{},abilities:{},effects:{}};
         async function get(category,id) {
           if (!idPattern.test(id||"")) throw Error("Referencia inválida: "+id);
@@ -326,7 +358,7 @@ if (
             pending=next;if(!next.length)break;
           }
           const chart=await env.EDITOR_DRAFTS.get("type-chart-draft","json");
-          return privateJson(simulate({left:input.left,right:input.right,catalog,chart:chart?.chart||chart,turns:Math.min(50,Math.max(1,Number(input.turns)||10)),seed:Number(input.seed)||12345,weather:input.weather||"",field:input.field||"",leftMove:input.leftMove||"",rightMove:input.rightMove||""}));
+          return privateJson(simulate({left:input.left,right:input.right,catalog,chart:chart?.chart||chart,turns:Math.min(50,Math.max(1,Number(input.turns)||10)),seed:Number(input.seed)||12345,weather:input.weather||"",field:input.field||"",leftMove:input.leftMove||"",rightMove:input.rightMove||"",leftTeam:input.leftTeam,rightTeam:input.rightTeam,leftOrders:input.leftOrders,rightOrders:input.rightOrders}));
         } catch(e) { return privateJson({error:String(e.message||e)},400); }
       }
 
@@ -358,6 +390,7 @@ if (
           }
           // Validaciones de referencias y rangos del editor, sin modificar balance.
           const d=body.definition;
+          try { validateDefinition(category,d); } catch (error) { return privateJson({error:error.message},400); }
           const slug=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
           const allTypes=["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","espiritu"];
           if (category === "moves") {
@@ -371,6 +404,8 @@ if (
               if(!slug.test(ref||""))return privateJson({error:"Referencia inválida: "+ref},400);
               const found=await env.EDITOR_DRAFTS.get(`catalog-v1:${kind}:${ref}`,"json");
               if(!found)return privateJson({error:`Falta ${kind} / ${ref}. Guardalo antes de crear la entidad.`},400);
+              const expected = kind==='moves' ? (ref===d.uniqueMoveId?'unique':'global') : (ref===d.uniqueAbilityId?'unique':'global');
+              if(found.definition.kind!==expected) return privateJson({error:`${kind} / ${ref}: la clase debe ser ${expected}.`},400);
             }
             if(d.spriteId && !slug.test(d.spriteId))return privateJson({error:"ID de sprite inválido."},400);
           }
