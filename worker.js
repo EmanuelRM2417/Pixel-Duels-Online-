@@ -241,6 +241,148 @@ if (
     }
   });
 }      
+
+      // ========================================
+      // TABLA DE TIPOS
+      // ========================================
+
+      const TYPES = [
+        "fuego",
+        "planta",
+        "roca",
+        "hielo",
+        "rayo",
+        "metal",
+        "guerra",
+        "mente",
+        "encanto",
+        "espectro",
+        "divinidad",
+        "luz",
+        "oscuridad",
+        "aire",
+        "dragon",
+        "agua",
+        "veneno",
+        "tecnologia",
+        "agilidad",
+        "espiritu"
+      ];
+
+      const TYPE_VALUES = [
+        "neutral",
+        "ineficaz",
+        "eficaz",
+        "inmune"
+      ];
+
+      // Crear tabla inicialmente neutral.
+      function createDefaultTypeChart() {
+        const chart = {};
+
+        for (const attackType of TYPES) {
+          chart[attackType] = {};
+
+          for (const defenseType of TYPES) {
+            chart[attackType][defenseType] = "neutral";
+          }
+        }
+
+        return chart;
+      }
+
+      // Recuperar tabla privada.
+      if (
+        url.pathname === "/editor-api/type-chart" &&
+        request.method === "GET"
+      ) {
+        const saved = await env.EDITOR_DRAFTS.get(
+          "type-chart-draft",
+          "json"
+        );
+
+        return privateJson({
+          ok: true,
+          types: TYPES,
+          chart: saved?.chart || createDefaultTypeChart(),
+          updatedAt: saved?.updatedAt || null
+        });
+      }
+
+      // Guardar tabla privada.
+      if (
+        url.pathname === "/editor-api/type-chart" &&
+        request.method === "PUT"
+      ) {
+        if (request.headers.get("Origin") !== url.origin) {
+          return privateJson({
+            error: "Origen no autorizado."
+          }, 403);
+        }
+
+        let body;
+
+        try {
+          body = await request.json();
+        } catch {
+          return privateJson({
+            error: "JSON inválido."
+          }, 400);
+        }
+
+        const chart = body?.chart;
+
+        if (
+          !chart ||
+          typeof chart !== "object" ||
+          Array.isArray(chart)
+        ) {
+          return privateJson({
+            error: "Tabla inválida."
+          }, 400);
+        }
+
+        // Validar las 400 relaciones.
+        for (const attackType of TYPES) {
+          const row = chart[attackType];
+
+          if (
+            !row ||
+            typeof row !== "object" ||
+            Array.isArray(row)
+          ) {
+            return privateJson({
+              error: "Falta una fila de la tabla."
+            }, 400);
+          }
+
+          for (const defenseType of TYPES) {
+            if (
+              !TYPE_VALUES.includes(row[defenseType])
+            ) {
+              return privateJson({
+                error: "Hay una relación de tipos inválida."
+              }, 400);
+            }
+          }
+        }
+
+        const draft = {
+          chart,
+          updatedAt: new Date().toISOString()
+        };
+
+        await env.EDITOR_DRAFTS.put(
+          "type-chart-draft",
+          JSON.stringify(draft)
+        );
+
+        return privateJson({
+          ok: true,
+          message: "Tabla de tipos guardada.",
+          updatedAt: draft.updatedAt
+        });
+      }
       if (
         url.pathname === "/editor-api/draft" &&
         request.method === "GET"
