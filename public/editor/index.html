@@ -6,12 +6,17 @@
   <title>Universal Duels | Editor</title>
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       background: #15151f;
       color: white;
       font-family: Arial, sans-serif;
       text-align: center;
-      padding: 60px 20px;
+      padding: 35px 16px;
+      margin: 0;
     }
 
     h1 {
@@ -20,102 +25,498 @@
 
     .panel {
       background: #242435;
-      padding: 30px;
+      padding: 25px;
       border-radius: 12px;
-      max-width: 500px;
-      margin: 30px auto;
+      max-width: 650px;
+      margin: 25px auto;
+    }
+
+    textarea,
+    input[type="text"] {
+      width: 100%;
+      background: #15151f;
+      color: white;
+      border: 1px solid #55556b;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: inherit;
+    }
+
+    textarea {
+      resize: vertical;
+    }
+
+    button {
+      background: #8b7cff;
+      color: white;
+      border: none;
+      border-radius: 7px;
+      padding: 12px 20px;
+      margin-top: 14px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .help {
+      color: #c4c4d5;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .sprite-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .sprite-box {
+      background: #171722;
+      border: 1px solid #45455d;
+      border-radius: 9px;
+      padding: 12px;
+    }
+
+    .sprite-box h3 {
+      margin-top: 0;
+    }
+
+    .sprite-box canvas {
+      display: block;
+      width: 100%;
+      max-width: 220px;
+      height: 190px;
+      margin: auto;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .sprite-box p {
+      color: #aaaac0;
+      font-size: 12px;
+    }
+
+    #spriteStatus,
+    #saveStatus {
+      min-height: 20px;
+      color: #c4c4d5;
+      overflow-wrap: anywhere;
+    }
+
+    #spriteId {
+      font-family: monospace;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+      color: #bdb4ff;
+    }
+
+    input[type="file"] {
+      max-width: 100%;
+      margin-top: 12px;
+    }
+
+    .divider {
+      border: 0;
+      border-top: 1px solid #444459;
+      margin: 25px 0;
+    }
+
+    @media (max-width: 420px) {
+      .sprite-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 
 <body>
+
   <h1>Universal Duels</h1>
 
   <div class="panel">
     <h2>Editor privado</h2>
 
     <p>Bienvenido al editor de Universal Duels.</p>
-
     <p>Los cambios se guardarán como borradores.</p>
-
     <p>El juego público no se modificará automáticamente.</p>
+
+    <hr class="divider">
+
+    <h2>Sprites de entidades</h2>
+
+    <p class="help">
+      Seleccioná un PNG transparente que contenga dos vistas:
+      frente a la izquierda y espalda a la derecha.
+      El archivo original se guardará sin modificaciones.
+    </p>
+
+    <input
+      type="file"
+      id="spriteFile"
+      accept="image/png"
+    >
+
+    <div class="sprite-grid">
+
+      <div class="sprite-box">
+        <h3>Frente</h3>
+        <canvas id="frontCanvas"></canvas>
+        <p>Mitad izquierda del PNG</p>
+      </div>
+
+      <div class="sprite-box">
+        <h3>Espalda</h3>
+        <canvas id="backCanvas"></canvas>
+        <p>Mitad derecha del PNG</p>
+      </div>
+
+    </div>
+
+    <p id="spriteStatus">Seleccioná una imagen para comenzar.</p>
+
+    <button id="uploadSprite" disabled>
+      Guardar sprite en R2
+    </button>
+
+    <p class="help">Identificador del sprite guardado:</p>
+    <p id="spriteId">Todavía no hay ninguno.</p>
+
+    <hr class="divider">
+
+    <h3>Recuperar un sprite guardado</h3>
+
+    <p class="help">
+      Pegá el identificador de un sprite que hayas guardado
+      anteriormente para volver a visualizarlo.
+    </p>
+
+    <input
+      type="text"
+      id="savedSpriteId"
+      placeholder="Identificador del sprite"
+    >
+
+    <button id="loadSprite">
+      Recuperar sprite
+    </button>
+
+    <hr class="divider">
+
+    <h2>Notas del borrador</h2>
 
     <label for="draftNotes">Notas del borrador</label>
 
-<br><br>
+    <br><br>
 
-<textarea
-  id="draftNotes"
-  rows="6"
-  placeholder="Escribí aquí tus cambios..."
-  style="width: 100%; box-sizing: border-box;"
-></textarea>
+    <textarea
+      id="draftNotes"
+      rows="6"
+      placeholder="Escribí aquí tus cambios..."
+    ></textarea>
 
-<p id="saveStatus">Sin cambios pendientes</p>
+    <p id="saveStatus">Sin cambios pendientes</p>
 
-<script>
-  const notes = document.getElementById("draftNotes");
-  const status = document.getElementById("saveStatus");
+  </div>
 
-  let saveTimer;
-  let saving = Promise.resolve();
+  <script>
+    // ========================================
+    // NOTAS DEL BORRADOR
+    // ========================================
 
-  async function loadDraft() {
-    status.textContent = "Cargando borrador...";
+    const notes = document.getElementById("draftNotes");
+    const status = document.getElementById("saveStatus");
 
-    try {
-      const response = await fetch("/editor-api/draft");
+    let saveTimer;
+    let saving = Promise.resolve();
 
-      if (!response.ok) {
-        throw new Error("No se pudo cargar el borrador.");
+    async function loadDraft() {
+      status.textContent = "Cargando borrador...";
+
+      try {
+        const response = await fetch("/editor-api/draft");
+
+        if (!response.ok) {
+          throw new Error("No se pudo cargar el borrador.");
+        }
+
+        const data = await response.json();
+
+        notes.value = data.draft?.notes || "";
+        status.textContent = "Borrador cargado.";
+      } catch {
+        status.textContent = "Error al cargar el borrador.";
       }
-
-      const data = await response.json();
-
-      notes.value = data.draft?.notes || "";
-      status.textContent = "Borrador cargado.";
-    } catch {
-      status.textContent = "Error al cargar el borrador.";
     }
-  }
 
-  async function saveDraft() {
-    const text = notes.value;
+    async function saveDraft() {
+      const text = notes.value;
 
-    saving = saving.catch(() => {}).then(async () => {
-      status.textContent = "Guardando...";
+      saving = saving.catch(() => {}).then(async () => {
+        status.textContent = "Guardando...";
 
-      const response = await fetch("/editor-api/draft", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ notes: text })
+        const response = await fetch("/editor-api/draft", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ notes: text })
+        });
+
+        if (!response.ok) {
+          throw new Error("No se pudo guardar.");
+        }
+
+        status.textContent = "Guardado automáticamente ✓";
       });
 
-      if (!response.ok) {
-        throw new Error("No se pudo guardar.");
+      try {
+        await saving;
+      } catch {
+        status.textContent =
+          "Error al guardar. Revisá la conexión.";
       }
+    }
 
-      status.textContent = "Guardado automáticamente ✓";
+    notes.addEventListener("input", () => {
+      clearTimeout(saveTimer);
+
+      status.textContent = "Cambios pendientes...";
+
+      saveTimer = setTimeout(saveDraft, 2000);
     });
 
-    try {
-      await saving;
-    } catch {
-      status.textContent = "Error al guardar. Revisá la conexión.";
+    // ========================================
+    // SPRITES
+    // ========================================
+
+    const spriteFile = document.getElementById("spriteFile");
+    const spriteStatus = document.getElementById("spriteStatus");
+    const spriteIdText = document.getElementById("spriteId");
+
+    const uploadButton = document.getElementById("uploadSprite");
+    const loadButton = document.getElementById("loadSprite");
+    const savedSpriteId = document.getElementById("savedSpriteId");
+
+    const frontCanvas = document.getElementById("frontCanvas");
+    const backCanvas = document.getElementById("backCanvas");
+
+    let selectedFile = null;
+
+    function clearCanvas(canvas) {
+      const context = canvas.getContext("2d");
+      context.clearRect(0, 0, canvas.width, canvas.height);
     }
-  }
 
-  notes.addEventListener("input", () => {
-    clearTimeout(saveTimer);
-    status.textContent = "Cambios pendientes...";
+    // Separa visualmente las dos mitades.
+    function showSprite(image) {
+      const halfWidth = Math.floor(image.naturalWidth / 2);
+      const height = image.naturalHeight;
 
-    saveTimer = setTimeout(saveDraft, 2000);
-  });
+      if (halfWidth < 1 || height < 1) {
+        throw new Error("La imagen es demasiado pequeña.");
+      }
 
-  loadDraft();
-</script>
-  </div>
+      const views = [
+        {
+          canvas: frontCanvas,
+          sourceX: 0,
+          sourceWidth: halfWidth
+        },
+        {
+          canvas: backCanvas,
+          sourceX: halfWidth,
+          sourceWidth: image.naturalWidth - halfWidth
+        }
+      ];
+
+      for (const view of views) {
+        const canvas = view.canvas;
+        const context = canvas.getContext("2d");
+
+        canvas.width = view.sourceWidth;
+        canvas.height = height;
+
+        context.imageSmoothingEnabled = false;
+
+        context.clearRect(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        context.drawImage(
+          image,
+          view.sourceX,
+          0,
+          view.sourceWidth,
+          height,
+          0,
+          0,
+          view.sourceWidth,
+          height
+        );
+      }
+    }
+
+    // Carga un PNG en memoria para visualizarlo.
+    async function previewBlob(blob) {
+      const objectUrl = URL.createObjectURL(blob);
+
+      try {
+        const image = new Image();
+
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = reject;
+          image.src = objectUrl;
+        });
+
+        showSprite(image);
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
+
+    // Seleccionar archivo local.
+    spriteFile.addEventListener("change", async () => {
+      selectedFile = null;
+      uploadButton.disabled = true;
+
+      const file = spriteFile.files[0];
+
+      if (!file) {
+        clearCanvas(frontCanvas);
+        clearCanvas(backCanvas);
+
+        spriteStatus.textContent =
+          "Seleccioná una imagen para comenzar.";
+
+        return;
+      }
+
+      if (
+        file.type !== "image/png" ||
+        !file.name.toLowerCase().endsWith(".png")
+      ) {
+        spriteStatus.textContent =
+          "Solo se permiten archivos PNG.";
+
+        return;
+      }
+
+      if (file.size === 0 || file.size > 2 * 1024 * 1024) {
+        spriteStatus.textContent =
+          "El archivo debe pesar como máximo 2 MB.";
+
+        return;
+      }
+
+      try {
+        await previewBlob(file);
+
+        selectedFile = file;
+        uploadButton.disabled = false;
+
+        spriteStatus.textContent =
+          "Vista previa lista. Todavía no se ha guardado.";
+      } catch {
+        spriteStatus.textContent =
+          "No se pudo abrir el PNG.";
+
+        clearCanvas(frontCanvas);
+        clearCanvas(backCanvas);
+      }
+    });
+
+    // Guardar el PNG original en R2.
+    uploadButton.addEventListener("click", async () => {
+      if (!selectedFile) return;
+
+      const fileToUpload = selectedFile;
+
+      uploadButton.disabled = true;
+      spriteStatus.textContent = "Subiendo sprite...";
+
+      try {
+        const response = await fetch("/editor-api/sprites", {
+          method: "POST",
+          headers: {
+            "Content-Type": "image/png"
+          },
+          body: fileToUpload
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(
+            data.error || "No se pudo guardar el sprite."
+          );
+        }
+
+        spriteIdText.textContent = data.spriteId;
+        savedSpriteId.value = data.spriteId;
+
+        spriteStatus.textContent =
+          "Sprite original guardado correctamente ✓";
+
+      } catch (error) {
+        spriteStatus.textContent =
+          "Error al subir: " + error.message;
+      } finally {
+        uploadButton.disabled = false;
+      }
+    });
+
+    // Recuperar una imagen previamente guardada.
+    loadButton.addEventListener("click", async () => {
+      const id = savedSpriteId.value.trim();
+
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        spriteStatus.textContent =
+          "Ingresá un identificador de sprite válido.";
+
+        return;
+      }
+
+      loadButton.disabled = true;
+      spriteStatus.textContent = "Recuperando sprite...";
+
+      try {
+        const response = await fetch(
+          "/editor-api/sprites/" + encodeURIComponent(id)
+        );
+
+        if (!response.ok) {
+          throw new Error("No se encontró el sprite.");
+        }
+
+        const blob = await response.blob();
+
+        await previewBlob(blob);
+
+        spriteIdText.textContent = id;
+
+        spriteStatus.textContent =
+          "Sprite recuperado correctamente ✓";
+
+      } catch (error) {
+        spriteStatus.textContent =
+          "Error al recuperar: " + error.message;
+      } finally {
+        loadButton.disabled = false;
+      }
+    });
+
+    // Iniciar editor.
+    loadDraft();
+  </script>
+
 </body>
 </html>
