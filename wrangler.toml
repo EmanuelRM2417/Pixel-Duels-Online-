@@ -20,5 +20,5 @@ binding = "ASSETS"
 run_worker_first = ["/api/*", "/health", "/editor-api/*"]
 
 [vars]
-ACCESS_TEAM_DOMAIN = "TU_EQUIPO.cloudflareaccess.com"
-ACCESS_AUD = "TU_AUD"
+ACCESS_TEAM_DOMAIN = "nameless-water-b29a.cloudflareaccess.com"
+ACCESS_AUD = "c38edfabcf3221f1ad4fa4c1b9d69e99600c921b83e99fc197c083afd9fa205c"
