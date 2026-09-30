@@ -20,6 +20,6 @@ binding = "ASSETS"
 run_worker_first = ["/api/*", "/health", "/editor-api/*"]
 
 [vars]
-ACCESS_TEAM_DOMAIN = "TU_EQUIPO.cloudflareaccess.com"
-ACCESS_AUD = "TU_AUD_DEL_WORKER_DE_PRUEBAS"
-EDITOR_EMAIL = "TU_CORREO_AUTORIZADO"
+ACCESS_TEAM_DOMAIN = "nameless-water-b29a.cloudflareaccess.com"
+ACCESS_AUD = "ef23d100f1d3f9465b903ed0d941b899dd0656baed5009d0aa161e69ba1d4672"
+EDITOR_EMAIL = "2417erm@gmail.com"
