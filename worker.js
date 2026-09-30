@@ -260,7 +260,7 @@ if (
         "divinidad",
         "luz",
         "oscuridad",
-        "aire",
+        "viento",
         "dragon",
         "agua",
         "veneno",
@@ -291,6 +291,44 @@ if (
         return chart;
       }
 
+      // Catálogo privado de contenido. No ejecuta mecánicas en combate.
+      const CATALOG_CATEGORIES = ["effects", "moves", "abilities", "entities", "weathers", "fields", "scenarios", "statuses"];
+      const catalogMatch = url.pathname.match(/^\/editor-api\/catalog\/([a-z]+)(?:\/([a-z0-9]+(?:-[a-z0-9]+)*))?$/);
+      if (catalogMatch) {
+        const category = catalogMatch[1];
+        const id = catalogMatch[2];
+        if (!CATALOG_CATEGORIES.includes(category)) return privateJson({ error: "Categoría inválida." }, 404);
+        const prefix = `catalog-v1:${category}:`;
+        if (request.method === "GET" && !id) {
+          const listed = await env.EDITOR_DRAFTS.list({ prefix, limit: 1000 });
+          const entries = await Promise.all(listed.keys.map(async key => env.EDITOR_DRAFTS.get(key.name, "json")));
+          return privateJson({ ok: true, entries: entries.filter(Boolean), cursor: listed.list_complete ? null : listed.cursor });
+        }
+        if (request.method === "GET" && id) {
+          const entry = await env.EDITOR_DRAFTS.get(prefix + id, "json");
+          return entry ? privateJson({ ok: true, entry }) : privateJson({ error: "No encontrado." }, 404);
+        }
+        if (request.method === "PUT" && id) {
+          if (request.headers.get("Origin") !== url.origin) return privateJson({ error: "Origen no autorizado." }, 403);
+          const raw = await request.text();
+          if (raw.length > 60000) return privateJson({ error: "Contenido demasiado grande." }, 413);
+          let body;
+          try { body = JSON.parse(raw); } catch { return privateJson({ error: "JSON inválido." }, 400); }
+          if (!body || typeof body !== "object" || Array.isArray(body) || typeof body.name !== "string" || !body.name.trim() || body.name.length > 100 || typeof body.description !== "string" || body.description.length > 2000 || !body.definition || typeof body.definition !== "object" || Array.isArray(body.definition)) {
+            return privateJson({ error: "Se requiere nombre, descripción y definición como objeto." }, 400);
+          }
+          const entry = { id, category, name: body.name.trim(), description: body.description, definition: body.definition, updatedAt: new Date().toISOString() };
+          await env.EDITOR_DRAFTS.put(prefix + id, JSON.stringify(entry));
+          return privateJson({ ok: true, entry });
+        }
+        if (request.method === "DELETE" && id) {
+          if (request.headers.get("Origin") !== url.origin) return privateJson({ error: "Origen no autorizado." }, 403);
+          await env.EDITOR_DRAFTS.delete(prefix + id);
+          return privateJson({ ok: true });
+        }
+        return privateJson({ error: "Método no permitido." }, 405);
+      }
+
       // Recuperar tabla privada.
       if (
         url.pathname === "/editor-api/type-chart" &&
@@ -301,10 +339,25 @@ if (
           "json"
         );
 
+        // Compatibilidad: conservar las relaciones guardadas cuando el tipo
+        // antes llamado "aire" pasa a llamarse "viento".
+        const chart = createDefaultTypeChart();
+        if (saved?.chart) {
+          for (const attack of TYPES) {
+            for (const defense of TYPES) {
+              const oldAttack = attack === "viento" ? "aire" : attack;
+              const oldDefense = defense === "viento" ? "aire" : defense;
+              const value = saved.chart[attack]?.[defense]
+                ?? saved.chart[oldAttack]?.[oldDefense];
+              if (TYPE_VALUES.includes(value)) chart[attack][defense] = value;
+            }
+          }
+        }
+        // No reescribir KV en GET: se migra al guardar el siguiente cambio.
         return privateJson({
           ok: true,
           types: TYPES,
-          chart: saved?.chart || createDefaultTypeChart(),
+          chart,
           updatedAt: saved?.updatedAt || null
         });
       }
