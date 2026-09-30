@@ -54,20 +54,67 @@
 <p id="saveStatus">Sin cambios pendientes</p>
 
 <script>
-  const draftNotes = document.getElementById("draftNotes");
-  const saveStatus = document.getElementById("saveStatus");
+  const notes = document.getElementById("draftNotes");
+  const status = document.getElementById("saveStatus");
 
   let saveTimer;
+  let saving = Promise.resolve();
 
-  draftNotes.addEventListener("input", () => {
+  async function loadDraft() {
+    status.textContent = "Cargando borrador...";
+
+    try {
+      const response = await fetch("/editor-api/draft");
+
+      if (!response.ok) {
+        throw new Error("No se pudo cargar el borrador.");
+      }
+
+      const data = await response.json();
+
+      notes.value = data.draft?.notes || "";
+      status.textContent = "Borrador cargado.";
+    } catch {
+      status.textContent = "Error al cargar el borrador.";
+    }
+  }
+
+  async function saveDraft() {
+    const text = notes.value;
+
+    saving = saving.catch(() => {}).then(async () => {
+      status.textContent = "Guardando...";
+
+      const response = await fetch("/editor-api/draft", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ notes: text })
+      });
+
+      if (!response.ok) {
+        throw new Error("No se pudo guardar.");
+      }
+
+      status.textContent = "Guardado automáticamente ✓";
+    });
+
+    try {
+      await saving;
+    } catch {
+      status.textContent = "Error al guardar. Revisá la conexión.";
+    }
+  }
+
+  notes.addEventListener("input", () => {
     clearTimeout(saveTimer);
+    status.textContent = "Cambios pendientes...";
 
-    saveStatus.textContent = "Cambios pendientes...";
-
-    saveTimer = setTimeout(() => {
-      saveStatus.textContent = "Guardado automático pendiente de conectar";
-    }, 2000);
+    saveTimer = setTimeout(saveDraft, 2000);
   });
+
+  loadDraft();
 </script>
   </div>
 </body>
