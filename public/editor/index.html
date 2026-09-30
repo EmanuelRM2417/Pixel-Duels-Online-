@@ -511,6 +511,11 @@ const response = await fetch(
   !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) ||
   id.length > 60
 ) {
+  spriteStatus.textContent =
+    "Ingresá un identificador válido.";
+
+  return;
+}
 
         return;
       }
