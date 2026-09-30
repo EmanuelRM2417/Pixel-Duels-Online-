@@ -10,6 +10,33 @@ export default {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null, { headers: cors });
     if (url.pathname === "/health") return json({ ok: true, service: "Duelo Pixel Rooms", version: 1 });
+      async fetch(request, env) {
+    const url = new URL(request.url);
+    if (request.method === "OPTIONS") return new Response(null, { headers: cors });
+    if (url.pathname === "/health") return json({ ok: true, service: "Duelo Pixel Rooms", version: 1 });
+        
+    if (url.pathname === "/editor-api/status") {
+      if (request.method !== "GET") {
+        return json({ error: "Método no permitido." }, 405);
+      }
+
+      if (!env.EDITOR_DRAFTS) {
+        return json({
+          ok: false,
+          error: "El almacenamiento de borradores no está conectado."
+        }, 500);
+      }
+
+      return json({
+        ok: true,
+        editor: "Universal Duels",
+        draftsConnected: true,
+        publicationMode: "manual"
+      });
+    }
+
+    if (url.pathname === "/api/rooms" && request.method === "POST") {
+    
 
     if (url.pathname === "/api/rooms" && request.method === "POST") {
       let body = {};
