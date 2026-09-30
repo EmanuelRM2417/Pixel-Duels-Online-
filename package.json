@@ -2,6 +2,14 @@
   "name": "duelo-pixel-rooms",
   "private": true,
   "version": "0.1.0",
-  "scripts": { "deploy": "wrangler deploy", "dev": "wrangler dev" },
-  "devDependencies": { "wrangler": "^4.0.0" }
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "jose": "^6.0.0"
+  }
 }
