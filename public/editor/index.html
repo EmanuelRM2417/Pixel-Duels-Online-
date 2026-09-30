@@ -312,6 +312,7 @@
     // ========================================
 
     const spriteFile = document.getElementById("spriteFile");
+    const customSpriteId = document.getElementById("customSpriteId");
     const spriteStatus = document.getElementById("spriteStatus");
     const spriteIdText = document.getElementById("spriteId");
 
@@ -461,13 +462,24 @@
       spriteStatus.textContent = "Subiendo sprite...";
 
       try {
-        const response = await fetch("/editor-api/sprites", {
-          method: "POST",
-          headers: {
-            "Content-Type": "image/png"
-          },
-          body: fileToUpload
-        });
+const id = customSpriteId.value.trim();
+
+if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) || id.length > 60) {
+  throw new Error(
+    "Escribí un identificador válido, por ejemplo: odin."
+  );
+}
+
+const response = await fetch(
+  "/editor-api/sprites?id=" + encodeURIComponent(id),
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "image/png"
+    },
+    body: fileToUpload
+  }
+);
 
         const data = await response.json();
 
@@ -495,9 +507,10 @@
     loadButton.addEventListener("click", async () => {
       const id = savedSpriteId.value.trim();
 
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-        spriteStatus.textContent =
-          "Ingresá un identificador de sprite válido.";
+      if (
+  !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) ||
+  id.length > 60
+) {
 
         return;
       }
