@@ -10,6 +10,10 @@ class_name = "Room"
 tag = "v1"
 new_sqlite_classes = ["Room"]
 
+[[kv_namespaces]]
+binding = "EDITOR_DRAFTS"
+id = "PEGA_AQUI_EL_NAMESPACE_ID_DE_PRUEBAS"
+
 [assets]
 directory = "./public"
 binding = "ASSETS"
