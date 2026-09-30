@@ -164,8 +164,27 @@ if (
     }, 415);
   }
 
-  const spriteId = crypto.randomUUID();
+    // Identificador elegido por el usuario.
+  const spriteId = url.searchParams.get("id") || "";
+
+  // Solo letras minúsculas, números y guiones.
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(spriteId) ||
+      spriteId.length > 60) {
+    return privateJson({
+      error: "Usá entre 1 y 60 caracteres: letras minúsculas, números y guiones."
+    }, 400);
+  }
+
   const key = `drafts/${spriteId}.png`;
+
+  // Evitar reemplazar un sprite existente.
+  const existing = await env.EDITOR_SPRITES.head(key);
+
+  if (existing) {
+    return privateJson({
+      error: "Ya existe un sprite con ese identificador."
+    }, 409);
+  }
 
   await env.EDITOR_SPRITES.put(key, bytes, {
     httpMetadata: {
@@ -194,9 +213,11 @@ if (
     "/editor-api/sprites/".length
   );
 
-  if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(spriteId)
+    if (
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(spriteId) ||
+    spriteId.length > 60
   ) {
+      
     return privateJson({
       error: "Identificador inválido."
     }, 400);
