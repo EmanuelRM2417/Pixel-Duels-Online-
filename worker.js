@@ -1,3 +1,4 @@
+import { simulate } from "./battle-engine.js";
 
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
@@ -291,6 +292,44 @@ if (
         return chart;
       }
 
+      // Simulación de combate exclusivamente privada y sin escrituras.
+      if (url.pathname === "/editor-api/simulate" && request.method === "POST") {
+        if (request.headers.get("Origin") !== url.origin) return privateJson({error:"Origen no autorizado."},403);
+        let input;
+        try { const raw=await request.text(); if(raw.length>5000) return privateJson({error:"Solicitud demasiado grande."},413); input=JSON.parse(raw); }
+        catch { return privateJson({error:"Solicitud inválida."},400); }
+        const idPattern=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+        if (!idPattern.test(input?.left||"") || !idPattern.test(input?.right||"")) return privateJson({error:"Elegí dos entidades válidas."},400);
+        const ids={entities:[input.left,input.right],moves:[],abilities:[],effects:[]};
+        const catalog={entities:{},moves:{},abilities:{},effects:{}};
+        async function get(category,id) {
+          if (!idPattern.test(id||"")) throw Error("Referencia inválida: "+id);
+          if (catalog[category][id]) return catalog[category][id];
+          const entry=await env.EDITOR_DRAFTS.get(`catalog-v1:${category}:${id}`,"json");
+          if(!entry) throw Error("No existe "+category+" / "+id);
+          catalog[category][id]=entry; return entry;
+        }
+        try {
+          for (const id of ids.entities) {
+            const e=await get("entities",id),d=e.definition;
+            for(const mid of [...(d.moveIds||[]),d.uniqueMoveId]) await get("moves",mid);
+            for(const aid of [d.globalAbilityId,d.uniqueAbilityId]) await get("abilities",aid);
+          }
+          // Efectos reutilizados: profundidad de referencia acotada.
+          let pending=[...Object.values(catalog.moves),...Object.values(catalog.abilities)];
+          for(let depth=0;depth<5;depth++) {
+            const next=[];
+            for(const entry of pending) for(const rule of entry.definition.rules||[]) if(rule.action?.type==="apply_effect") {
+              const eid=rule.action.value;
+              if(!catalog.effects[eid]) next.push(await get("effects",eid));
+            }
+            pending=next;if(!next.length)break;
+          }
+          const chart=await env.EDITOR_DRAFTS.get("type-chart-draft","json");
+          return privateJson(simulate({left:input.left,right:input.right,catalog,chart:chart?.chart||chart,turns:Math.min(50,Math.max(1,Number(input.turns)||10)),seed:Number(input.seed)||12345,weather:input.weather||"",field:input.field||"",leftMove:input.leftMove||"",rightMove:input.rightMove||""}));
+        } catch(e) { return privateJson({error:String(e.message||e)},400); }
+      }
+
       // Catálogo privado de contenido. No ejecuta mecánicas en combate.
       const CATALOG_CATEGORIES = ["effects", "moves", "abilities", "entities", "weathers", "fields", "scenarios", "statuses"];
       const catalogMatch = url.pathname.match(/^\/editor-api\/catalog\/([a-z]+)(?:\/([a-z0-9]+(?:-[a-z0-9]+)*))?$/);
@@ -316,6 +355,28 @@ if (
           try { body = JSON.parse(raw); } catch { return privateJson({ error: "JSON inválido." }, 400); }
           if (!body || typeof body !== "object" || Array.isArray(body) || typeof body.name !== "string" || !body.name.trim() || body.name.length > 100 || typeof body.description !== "string" || body.description.length > 2000 || !body.definition || typeof body.definition !== "object" || Array.isArray(body.definition)) {
             return privateJson({ error: "Se requiere nombre, descripción y definición como objeto." }, 400);
+          }
+          // Validaciones de referencias y rangos del editor, sin modificar balance.
+          const d=body.definition;
+          const slug=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+          const allTypes=["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","espiritu"];
+          if (category === "moves") {
+            if (!allTypes.includes(d.type)||!["physical","special","status"].includes(d.category)||!Number.isFinite(d.power)||d.power<0||d.power>500||!Number.isFinite(d.accuracy)||d.accuracy<0||d.accuracy>100||!Number.isFinite(d.criticalChance)||d.criticalChance<0||d.criticalChance>50||!Number.isInteger(d.priority)||d.priority< -5||d.priority>5) return privateJson({error:"Tipo, categoría, potencia, precisión, crítico o prioridad inválidos."},400);
+          }
+          if (category === "entities") {
+            if(!Array.isArray(d.types)||d.types.length<1||d.types.length>3||new Set(d.types).size!==d.types.length||d.types.some(t=>!allTypes.includes(t)))return privateJson({error:"Se requieren 1–3 tipos distintos y válidos."},400);
+            for(const stat of ["hp","attack","defense","specialAttack","specialDefense","speed"])if(!Number.isInteger(d[stat])||d[stat]<(stat==="hp"?1:0)||d[stat]>200)return privateJson({error:"Estadística inválida: "+stat+" (PS 1–200; demás 0–200)."},400);
+            if(!Array.isArray(d.moveIds)||d.moveIds.length!==3||new Set([...d.moveIds,d.uniqueMoveId]).size!==4)return privateJson({error:"Se requieren tres ataques globales y uno exclusivo, todos distintos."},400);
+            for(const [kind,ids] of [["moves",[...d.moveIds,d.uniqueMoveId]],["abilities",[d.globalAbilityId,d.uniqueAbilityId]]])for(const ref of ids) {
+              if(!slug.test(ref||""))return privateJson({error:"Referencia inválida: "+ref},400);
+              const found=await env.EDITOR_DRAFTS.get(`catalog-v1:${kind}:${ref}`,"json");
+              if(!found)return privateJson({error:`Falta ${kind} / ${ref}. Guardalo antes de crear la entidad.`},400);
+            }
+            if(d.spriteId && !slug.test(d.spriteId))return privateJson({error:"ID de sprite inválido."},400);
+          }
+          if(Array.isArray(d.rules))for(const rule of d.rules) {
+            if(!Number.isFinite(rule.chance??100)||(rule.chance??100)<0||(rule.chance??100)>100||!Number.isFinite(rule.duration??0)||(rule.duration??0)<0||!Number.isFinite(rule.limit??0)||(rule.limit??0)<0)return privateJson({error:"Probabilidad, duración o límite inválidos."},400);
+            if(rule.action?.type==="apply_effect" && rule.action.value && !await env.EDITOR_DRAFTS.get(`catalog-v1:effects:${rule.action.value}`,"json"))return privateJson({error:"Guardá primero el efecto "+rule.action.value},400);
           }
           const entry = { id, category, name: body.name.trim(), description: body.description, definition: body.definition, updatedAt: new Date().toISOString() };
           await env.EDITOR_DRAFTS.put(prefix + id, JSON.stringify(entry));
