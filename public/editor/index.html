@@ -131,6 +131,46 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* Tabla de tipos privada. */
+    .type-panel { max-width: 1200px; }
+    .type-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; margin: 16px 0; }
+    .type-choice { display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; margin: 0; background: #33334a; border: 2px solid transparent; }
+    .type-choice[aria-pressed="true"] { border-color: #c5bcff; outline: 1px solid #c5bcff; }
+    .type-swatch { width: 18px; height: 18px; border: 1px solid #777; border-radius: 3px; display: inline-block; }
+    .type-table-scroll { max-width: 100%; overflow: auto; border: 1px solid #55556b; border-radius: 8px; max-height: 650px; }
+    .type-table { border-collapse: separate; border-spacing: 2px; width: max-content; background: #1b1b29; }
+    .type-table th { background: #343449; color: white; font-size: 12px; min-width: 47px; padding: 7px 3px; }
+    .type-table thead th { position: sticky; top: 0; z-index: 2; height: 105px; vertical-align: bottom; }
+    .type-table thead th span { writing-mode: vertical-rl; transform: rotate(180deg); display: inline-block; }
+    .type-table tbody th { position: sticky; left: 0; z-index: 1; min-width: 108px; text-align: left; padding-left: 9px; }
+    .type-table thead th:first-child { left: 0; z-index: 3; min-width: 108px; }
+    /* Esquina fija: eje vertical = ofensivo; eje horizontal = defensivo. */
+    .type-table .type-axis-corner {
+      position: sticky; left: 0; top: 0; z-index: 4;
+      width: 108px; min-width: 108px; height: 105px;
+      padding: 0; overflow: hidden;
+      background: linear-gradient(to bottom right,
+        #343449 calc(50% - 1px), #9b8dff 50%, #343449 calc(50% + 1px));
+    }
+    .type-axis-corner .axis-defensive,
+    .type-axis-corner .axis-offensive {
+      position: absolute; font-size: 11px; font-weight: 700;
+      letter-spacing: .15px; line-height: 1.2; white-space: nowrap;
+      text-shadow: 0 1px 2px #15151f;
+    }
+    .type-axis-corner .axis-defensive { top: 17px; right: 7px; color: #bdb4ff; }
+    .type-axis-corner .axis-offensive { bottom: 17px; left: 7px; color: #ffcf9b; }
+    .type-axis-corner .axis-defensive::after { content: " →"; }
+    .type-axis-corner .axis-offensive::before { content: "↓ "; }
+    .type-cell { display: block; width: 42px; height: 35px; padding: 0; margin: 0; border: 2px solid #6b6b7d; border-radius: 4px; cursor: pointer; }
+    .type-cell:focus-visible { outline: 3px solid #b7aaff; outline-offset: 1px; }
+    .type-cell[data-value="neutral"] { background: #fff; }
+    .type-cell[data-value="ineficaz"] { background: #e34d59; }
+    .type-cell[data-value="eficaz"] { background: #35bd70; }
+    .type-cell[data-value="inmune"] { background: #050505; }
+    #typeChartStatus { color: #c4c4d5; min-height: 20px; }
+    #resetTypeChart { background: #6b3946; }
   </style>
 </head>
 
@@ -239,6 +279,24 @@
     <p id="saveStatus">Sin cambios pendientes</p>
 
   </div>
+
+
+  <section class="panel type-panel" aria-labelledby="typeChartHeading">
+    <h2 id="typeChartHeading">Tabla de tipos</h2>
+    <p class="help">Filas: tipo del ataque. Columnas: tipo defensivo. Elegí un color y tocá una casilla para asignarlo. Todos los enfrentamientos empiezan neutrales.</p>
+    <div class="type-toolbar" role="group" aria-label="Seleccionar resultado del ataque">
+      <button type="button" class="type-choice" data-paint="neutral" aria-pressed="true"><span class="type-swatch" style="background:#fff"></span> Blanco · Neutral (0 %)</button>
+      <button type="button" class="type-choice" data-paint="ineficaz" aria-pressed="false"><span class="type-swatch" style="background:#e34d59"></span> Rojo · Ineficaz (−20 %)</button>
+      <button type="button" class="type-choice" data-paint="eficaz" aria-pressed="false"><span class="type-swatch" style="background:#35bd70"></span> Verde · Eficaz (+20 %)</button>
+      <button type="button" class="type-choice" data-paint="inmune" aria-pressed="false"><span class="type-swatch" style="background:#050505"></span> Negro · Inmune</button>
+    </div>
+    <div class="type-table-scroll" tabindex="0" aria-label="Tabla de tipos desplazable horizontal y verticalmente">
+      <table class="type-table" id="typeChartTable" aria-label="Relaciones de ataque contra defensa"></table>
+    </div>
+    <p id="typeChartStatus" role="status">Cargando tabla de tipos...</p>
+    <button type="button" id="resetTypeChart" disabled>Restablecer todas las casillas a neutral</button>
+    <p class="help">La tabla se guarda automáticamente como borrador privado. Una inmunidad defensiva anula el daño incluso si la entidad tiene otros tipos.</p>
+  </section>
 
   <script>
     // ========================================
@@ -544,6 +602,175 @@ const response = await fetch(
         loadButton.disabled = false;
       }
     });
+
+
+    // ========================================
+    // TABLA DE TIPOS (BORRADOR PRIVADO)
+    // ========================================
+    const chartTypes = [
+      ["fuego", "Fuego"], ["planta", "Planta"], ["roca", "Roca"],
+      ["hielo", "Hielo"], ["rayo", "Rayo"], ["metal", "Metal"],
+      ["guerra", "Guerra"], ["mente", "Mente"], ["encanto", "Encanto"],
+      ["espectro", "Espectro"], ["divinidad", "Divinidad"], ["luz", "Luz"],
+      ["oscuridad", "Oscuridad"], ["aire", "Aire"], ["dragon", "Dragón"],
+      ["agua", "Agua"], ["veneno", "Veneno"],
+      ["tecnologia", "Tecnología"], ["agilidad", "Agilidad"],
+      ["espiritu", "Espíritu"]
+    ];
+    const chartValues = ["neutral", "ineficaz", "eficaz", "inmune"];
+    const chartLabels = { neutral: "Neutral", ineficaz: "Ineficaz", eficaz: "Eficaz", inmune: "Inmune" };
+    const typeChartTable = document.getElementById("typeChartTable");
+    const typeChartStatus = document.getElementById("typeChartStatus");
+    const resetTypeChart = document.getElementById("resetTypeChart");
+    const paintButtons = [...document.querySelectorAll("[data-paint]")];
+    let currentPaint = "neutral";
+    let typeChart = null;
+    let chartTimer = null;
+    let chartSaving = Promise.resolve();
+    let chartRevision = 0;
+
+    function neutralChart() {
+      const result = {};
+      for (const [attack] of chartTypes) {
+        result[attack] = {};
+        for (const [defense] of chartTypes) result[attack][defense] = "neutral";
+      }
+      return result;
+    }
+
+    function setChartPaint(value) {
+      currentPaint = value;
+      for (const button of paintButtons) {
+        button.setAttribute("aria-pressed", String(button.dataset.paint === value));
+      }
+    }
+    for (const button of paintButtons) {
+      button.addEventListener("click", () => setChartPaint(button.dataset.paint));
+    }
+
+    function renderTypeChart() {
+      const head = document.createElement("thead");
+      const headerRow = document.createElement("tr");
+      const corner = document.createElement("th");
+      corner.className = "type-axis-corner";
+      corner.scope = "col";
+      corner.setAttribute("aria-label", "Filas: ofensivo, tipo del ataque. Columnas: defensivo, tipo que recibe el ataque.");
+      const defensiveAxis = document.createElement("span");
+      defensiveAxis.className = "axis-defensive";
+      defensiveAxis.textContent = "Defensivo";
+      defensiveAxis.setAttribute("aria-hidden", "true");
+      const offensiveAxis = document.createElement("span");
+      offensiveAxis.className = "axis-offensive";
+      offensiveAxis.textContent = "Ofensivo";
+      offensiveAxis.setAttribute("aria-hidden", "true");
+      corner.append(defensiveAxis, offensiveAxis);
+      headerRow.append(corner);
+      for (const [, label] of chartTypes) {
+        const th = document.createElement("th");
+        th.scope = "col";
+        const span = document.createElement("span");
+        span.textContent = label;
+        th.append(span);
+        headerRow.append(th);
+      }
+      head.append(headerRow);
+      const body = document.createElement("tbody");
+      for (const [attack, attackLabel] of chartTypes) {
+        const row = document.createElement("tr");
+        const rowHeader = document.createElement("th");
+        rowHeader.scope = "row";
+        rowHeader.textContent = attackLabel;
+        row.append(rowHeader);
+        for (const [defense, defenseLabel] of chartTypes) {
+          const td = document.createElement("td");
+          const cell = document.createElement("button");
+          cell.type = "button";
+          cell.className = "type-cell";
+          cell.dataset.value = typeChart[attack][defense];
+          const describe = () => {
+            cell.title = `${attackLabel} contra ${defenseLabel}: ${chartLabels[cell.dataset.value]}`;
+            cell.setAttribute("aria-label", cell.title);
+          };
+          describe();
+          cell.addEventListener("click", () => {
+            if (typeChart[attack][defense] === currentPaint) return;
+            typeChart[attack][defense] = currentPaint;
+            cell.dataset.value = currentPaint;
+            describe();
+            scheduleChartSave();
+          });
+          td.append(cell);
+          row.append(td);
+        }
+        body.append(row);
+      }
+      typeChartTable.replaceChildren(head, body);
+    }
+
+    async function loadTypeChart() {
+      try {
+        const response = await fetch("/editor-api/type-chart", { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (!data.ok || !data.chart) throw new Error("Respuesta inválida");
+        const result = neutralChart();
+        for (const [attack] of chartTypes) {
+          for (const [defense] of chartTypes) {
+            const value = data.chart[attack]?.[defense];
+            if (!chartValues.includes(value)) throw new Error("Datos de tipos inválidos");
+            result[attack][defense] = value;
+          }
+        }
+        typeChart = result;
+        renderTypeChart();
+        resetTypeChart.disabled = false;
+        typeChartStatus.textContent = "Tabla de tipos cargada ✓";
+      } catch (error) {
+        typeChartStatus.textContent = "No se pudo cargar la tabla. Revisá que el worker de prueba tenga la ruta /editor-api/type-chart. " + error.message;
+      }
+    }
+
+    function scheduleChartSave() {
+      chartRevision++;
+      clearTimeout(chartTimer);
+      typeChartStatus.textContent = "Cambios pendientes...";
+      chartTimer = setTimeout(saveTypeChart, 900);
+    }
+
+    function saveTypeChart() {
+      const revision = chartRevision;
+      const snapshot = JSON.stringify({ chart: typeChart });
+      chartSaving = chartSaving.catch(() => {}).then(async () => {
+        typeChartStatus.textContent = "Guardando tabla de tipos...";
+        const response = await fetch("/editor-api/type-chart", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: snapshot
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || `HTTP ${response.status}`);
+        }
+        if (revision === chartRevision) {
+          typeChartStatus.textContent = "Tabla de tipos guardada automáticamente ✓";
+        }
+      });
+      chartSaving.catch(error => {
+        if (revision === chartRevision) {
+          typeChartStatus.textContent = "Error al guardar: " + error.message + ". Probá cambiar otra casilla para reintentar.";
+        }
+      });
+    }
+
+    resetTypeChart.addEventListener("click", () => {
+      if (!typeChart) return;
+      if (!confirm("¿Restablecer las 400 relaciones a neutral? Esta acción se guardará en el borrador.")) return;
+      typeChart = neutralChart();
+      renderTypeChart();
+      scheduleChartSave();
+    });
+
+    loadTypeChart();
 
     // Iniciar editor.
     loadDraft();
