@@ -179,7 +179,47 @@ if (
     message: "Sprite original guardado como borrador."
   });
 }
-      
+// Consultar un sprite privado guardado en R2.
+if (
+  url.pathname.startsWith("/editor-api/sprites/") &&
+  request.method === "GET"
+) {
+  if (!env.EDITOR_SPRITES) {
+    return privateJson({
+      error: "Almacenamiento de sprites no conectado."
+    }, 500);
+  }
+
+  const spriteId = url.pathname.slice(
+    "/editor-api/sprites/".length
+  );
+
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(spriteId)
+  ) {
+    return privateJson({
+      error: "Identificador inválido."
+    }, 400);
+  }
+
+  const object = await env.EDITOR_SPRITES.get(
+    `drafts/${spriteId}.png`
+  );
+
+  if (!object) {
+    return privateJson({
+      error: "Sprite no encontrado."
+    }, 404);
+  }
+
+  return new Response(object.body, {
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff"
+    }
+  });
+}      
       if (
         url.pathname === "/editor-api/draft" &&
         request.method === "GET"
