@@ -215,15 +215,46 @@
     #advancedToggle { background: #41415e; font-size: 12px; padding: 8px 12px; }
     @media (max-width: 650px) { .builder-grid { grid-template-columns: 1fr; } }
     @media (max-width: 650px) { .catalog-layout { grid-template-columns: 1fr; } }
+    /* Diseño de estudio: navegación sin recargar ni modificar los formularios originales. */
+    body { padding:0; text-align:left; background:#10111c; color:#f1f1fb; font-family:Inter,ui-sans-serif,system-ui,Arial,sans-serif; }
+    .studio-header {height:76px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:#171927;border-bottom:1px solid #34364d;position:sticky;top:0;z-index:20}
+    .studio-brand{display:flex;align-items:center;gap:12px}.studio-brand strong{font-size:16px;letter-spacing:1.3px}.studio-brand small{display:block;color:#a4a5c1;font-size:10px;letter-spacing:1.4px;margin-top:4px}.studio-mark{font-size:30px;color:#a79aff}.studio-pill{border:1px solid #4c496e;color:#c7bfff;border-radius:30px;padding:8px 13px;font-size:12px}
+    .studio-shell{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:calc(100vh - 76px)}.studio-sidebar{background:#171927;border-right:1px solid #34364d;padding:24px 13px;display:flex;flex-direction:column;gap:3px}.nav-caption{font-size:10px;letter-spacing:1.5px;color:#81849e;margin:22px 13px 8px;font-weight:700}.studio-nav{width:100%;margin:0;padding:12px 14px;text-align:left;background:transparent;color:#b9bdd5;font-size:13px;font-weight:600;border-radius:9px}.studio-nav:hover{background:#292b40;color:white}.studio-nav.active{background:#393454;color:#e1d9ff;border-left:3px solid #a99bff}.nav-footer{font-size:11px;line-height:1.5;color:#8588a2;padding:22px 13px;margin-top:auto}.studio-main{min-width:0;padding:32px clamp(16px,4vw,60px) 70px;max-width:1650px;width:100%;margin:auto}.view-heading{margin:0 0 23px}.view-heading span{font-size:11px;color:#9d91ff;letter-spacing:1.5px;font-weight:700}.view-heading h1{font-size:clamp(25px,3vw,35px);margin:9px 0 7px;color:#f7f6ff}.view-heading p{color:#aeb0c8;margin:0}.panel{max-width:none;width:100%;margin:0 0 24px;background:#202234;border:1px solid #353750;border-radius:16px;box-shadow:0 14px 32px #08091120;text-align:left;padding:clamp(17px,3vw,29px)}.panel h2{color:#f1efff;margin-top:0}.panel[hidden]{display:none!important}.catalog-panel{max-width:none}.catalog-panel h2,.catalog-panel>.help{text-align:left}.catalog-layout{grid-template-columns:minmax(215px,.7fr) minmax(0,2fr);gap:24px}.catalog-list button{margin:2px 0;background:#2d3046;border:1px solid #41445d;border-radius:10px}.catalog-list button:hover{background:#41415f}.catalog-panel input,.catalog-panel select,.catalog-panel textarea{background:#151727;border-color:#4a4b66}.builder{background:#191b2b}.builder-row{background:#26293d}.sprite-box{background:#171a29}.sprite-box canvas{background-image:linear-gradient(45deg,#242638 25%,transparent 25%),linear-gradient(-45deg,#242638 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#242638 75%),linear-gradient(-45deg,transparent 75%,#242638 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0}.icon-upload-layout{display:grid;grid-template-columns:minmax(245px,340px) minmax(0,1fr);gap:28px}.icon-upload-form{display:flex;flex-direction:column;gap:10px}.icon-upload-form label{color:#c9c6e9;font-size:13px;font-weight:700}.icon-upload-form select{padding:12px;background:#151727;color:white;border:1px solid #535572;border-radius:9px}.icon-preview{height:170px;display:grid;place-items:center;border:1px dashed #626381;border-radius:13px;background:#151727;color:#979ab5;text-align:center;padding:15px}.icon-preview img{width:126px;height:126px;object-fit:contain;image-rendering:pixelated}.icon-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(115px,1fr));gap:12px}.icon-card{margin:0;background:#191b2b;border:1px solid #43455e;border-radius:12px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:7px;min-height:122px}.icon-card:hover,.icon-card.selected{border-color:#a89cff;background:#302d48}.icon-card img{width:64px;height:64px;object-fit:contain;image-rendering:pixelated}.icon-card .empty-icon{width:64px;height:64px;border:1px dashed #5c5c76;border-radius:10px;display:grid;place-items:center;color:#797a9d;font-size:24px}.icon-card strong{font-size:12px}.icon-card small{font-size:10px;color:#a4a5c1}.catalog-sprite-thumb{height:48px;width:48px;object-fit:cover;object-position:left center;image-rendering:pixelated;border-radius:8px;background:#191b2b;flex:none}.catalog-list button.entity-item{display:flex;align-items:center;gap:10px}.catalog-list button.entity-item .entity-caption{display:flex;flex-direction:column;gap:4px}.entity-caption small{font-size:11px;color:#aaa9c5}.entity-sprite-preview{margin:12px 0;padding:12px;background:#151727;border:1px solid #454760;border-radius:12px;display:flex;align-items:center;gap:16px}.entity-sprite-preview img{width:108px;height:108px;object-fit:cover;object-position:left center;image-rendering:pixelated;background:#242638;border-radius:9px}.entity-sprite-preview span{font-size:12px;color:#aeb0c8}.type-icon-inline{height:19px;width:19px;object-fit:contain;image-rendering:pixelated;vertical-align:middle;margin-right:5px}.type-table tbody th,.type-table thead th{white-space:nowrap}
+    .catalog-list{max-height:460px;overflow-y:auto;scrollbar-color:#68639a #1b1c2a}
+    .catalog-list button[aria-current="true"]{outline:2px solid #b8aaff;outline-offset:-2px;background:#383452}
+    .catalog-list button[hidden]{display:none!important}
+    input[type="search"]{width:100%;padding:12px;background:#151727;border:1px solid #535572;border-radius:9px;color:white;margin:8px 0}
+    .secondary-action{background:#35364c;color:#e6e4fa;border:1px solid #5d5e7d}
+    .draft-indicator{padding:10px 13px;border-radius:9px;background:#43351c;color:#ffda93;border:1px solid #796136;font-size:13px}
+    .catalog-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .catalog-actions button{margin-top:5px}
+    button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #c0b5ff;outline-offset:2px}
+    @media(max-width:900px){.studio-shell{grid-template-columns:1fr}.studio-sidebar{flex-direction:row;overflow-x:auto;white-space:nowrap;padding:10px;gap:6px;border-right:0;border-bottom:1px solid #34364d}.studio-sidebar .nav-caption,.studio-sidebar .nav-footer{display:none}.studio-nav{width:auto;flex:none;padding:10px}.studio-header{padding:0 16px}.studio-pill{display:none}.studio-main{padding:22px 14px}.icon-upload-layout{grid-template-columns:1fr}}
+    @media(max-width:620px){.catalog-layout{grid-template-columns:1fr}.studio-brand strong{font-size:13px}.icon-gallery{grid-template-columns:repeat(auto-fill,minmax(95px,1fr))}}
   </style>
 </head>
 
 <body>
+  <header class="studio-header"><div class="studio-brand"><span class="studio-mark">✦</span><div><strong>UNIVERSAL DUELS</strong><small>ESTUDIO PRIVADO · BORRADORES</small></div></div><span class="studio-pill">● Entorno de pruebas</span></header>
+  <div class="studio-shell"><aside class="studio-sidebar" aria-label="Navegación del editor"><p class="nav-caption">ESPACIO DE TRABAJO</p>
+  <button class="studio-nav active" data-view="home">⌂ &nbsp; Inicio y sprites</button>
+  <button class="studio-nav" data-view="types">◈ &nbsp; Tabla de tipos</button>
+  <button class="studio-nav" data-view="type-icons">▦ &nbsp; Sprites de tipos</button>
+  <p class="nav-caption">CONTENIDO</p>
+  <button class="studio-nav" data-view="catalog" data-category="entities">♟ &nbsp; Entidades</button>
+  <button class="studio-nav" data-view="catalog" data-category="moves">⚔ &nbsp; Ataques</button>
+  <button class="studio-nav" data-view="catalog" data-category="abilities">✧ &nbsp; Habilidades</button>
+  <button class="studio-nav" data-view="catalog" data-category="effects">✳ &nbsp; Efectos</button>
+  <button class="studio-nav" data-view="catalog" data-category="statuses">◉ &nbsp; Estados alterados</button>
+  <button class="studio-nav" data-view="catalog" data-category="weathers">☁ &nbsp; Climas</button>
+  <button class="studio-nav" data-view="catalog" data-category="fields">▤ &nbsp; Campos</button>
+  <button class="studio-nav" data-view="catalog" data-category="scenarios">▧ &nbsp; Escenarios</button>
+  <p class="nav-caption">PRUEBAS</p><button class="studio-nav" data-view="sim">⚡ &nbsp; Laboratorio</button>
+  <p class="nav-footer">El contenido privado no se publica automáticamente.</p></aside>
+  <main class="studio-main"><div class="view-heading"><span id="viewEyebrow">ESTUDIO / INICIO</span><h1 id="viewTitle">Tu espacio de creación</h1><p id="viewDescription">Organizá tus recursos y mecánicas desde un solo lugar.</p></div>
 
-  <h1>Universal Duels</h1>
-
-  <div class="panel">
-    <h2>Editor privado</h2>
+  <div class="panel" data-studio-view="home">
+    <h2>Sprites de entidades y notas</h2>
 
     <p>Bienvenido al editor de Universal Duels.</p>
     <p>Los cambios se guardarán como borradores.</p>
@@ -325,7 +356,7 @@
   </div>
 
 
-  <section class="panel type-panel" aria-labelledby="typeChartHeading">
+  <section class="panel type-panel" data-studio-view="types" aria-labelledby="typeChartHeading">
     <h2 id="typeChartHeading">Tabla de tipos</h2>
     <p class="help">Filas: tipo del ataque. Columnas: tipo defensivo. Elegí un color y tocá una casilla para asignarlo. Todos los enfrentamientos empiezan neutrales.</p>
     <div class="type-toolbar" role="group" aria-label="Seleccionar resultado del ataque">
@@ -343,7 +374,7 @@
   </section>
 
 
-  <section class="panel catalog-panel" aria-labelledby="catalogHeading">
+  <section class="panel catalog-panel" data-studio-view="catalog" aria-labelledby="catalogHeading">
     <h2 id="catalogHeading">Catálogo de contenido</h2>
     <p class="help">Creá y guardá definiciones privadas. Los elementos se guardan en KV. El simulador privado interpreta un subconjunto de acciones y condiciones; otras quedan guardadas para el motor completo.</p>
     <datalist id="moveReferences"></datalist>
@@ -356,9 +387,12 @@
           <option value="weathers">Climas</option><option value="fields">Campos</option>
           <option value="scenarios">Escenarios</option><option value="statuses">Estados alterados</option>
         </select>
-        <p class="help">Elementos guardados</p>
+        <label for="catalogSearch">Buscar por nombre o identificador</label>
+        <input id="catalogSearch" type="search" placeholder="Filtrar elementos guardados…" autocomplete="off">
+        <p class="help" id="catalogCount">Elementos guardados</p>
         <div class="catalog-list" id="catalogList"></div>
         <button type="button" id="catalogNew">+ Nuevo elemento</button>
+        <button type="button" id="catalogExport" class="secondary-action">Exportar catálogo (JSON)</button>
       </div>
       <div>
         <label for="catalogId">Identificador (minúsculas, números y guiones)</label>
@@ -369,7 +403,7 @@
         <textarea id="catalogDescription" rows="3" placeholder="¿Qué hace?"></textarea>
         <div class="builder" id="catalogBuilder">
           <h3>Configuración visual</h3>
-          <p class="builder-note">Elegí las piezas y combiná reglas. Podés combinar reglas; el simulador interpreta las operaciones indicadas en su documentación.</p>
+          <p class="builder-note">Cada casilla se elige individualmente. No se completan automáticamente los valores de las reglas. <strong>Solo aparecen operaciones interpretadas por el laboratorio actual.</strong> Los climas, campos y estados aún no ejecutan reglas propias. Consultá la guía de cada casilla debajo.</p><details open><summary>¿Qué significa cada casilla?</summary><div id="mechanicHelp" class="builder-note"></div></details>
           <div id="builderBasics"></div>
           <div id="builderRules"></div>
           <button type="button" id="builderAddRule">+ Agregar regla</button>
@@ -380,16 +414,18 @@
         <p class="builder-note">Los identificadores de sprites, ataques y habilidades se vinculan por su ID. Elegí referencias existentes. La validación de relaciones se hace al guardar y el simulador avisa si falta una referencia.</p>
         <div class="catalog-actions">
           <button type="button" id="catalogSave">Guardar elemento</button>
+          <button type="button" id="catalogDuplicate" class="secondary-action" disabled>Duplicar como nuevo</button>
           <button type="button" id="catalogDelete" disabled>Eliminar elemento</button>
         </div>
         <p id="catalogStatus" role="status">Seleccioná una categoría para comenzar.</p>
+        <p id="catalogDirty" class="draft-indicator" role="status" hidden>● Tenés cambios sin guardar. Guardalos o descartalos antes de salir de este elemento.</p>
       </div>
     </div>
   </section>
 
-  <section class="panel" aria-labelledby="simHeading">
-    <h2 id="simHeading">Laboratorio de batalla · Singles</h2>
-    <p class="help">Prueba privada de dos entidades del catálogo, con ataques automáticos, estadísticas, tabla de tipos y reglas compatibles. No modifica el juego público ni concede recompensas.</p>
+  <section class="panel" data-studio-view="sim" aria-labelledby="simHeading">
+    <h2 id="simHeading">Laboratorio de batalla · Singles por equipos</h2>
+    <p class="help">Prueba privada con hasta ocho entidades por equipo, relevos y órdenes por ronda. No modifica el juego público ni concede recompensas.</p>
     <div class="builder-grid">
       <label>Entidad izquierda <select id="simLeft"></select></label>
       <label>Entidad derecha <select id="simRight"></select></label>
@@ -400,12 +436,35 @@
       <label>Clima inicial <select id="simWeather"><option value="">Ninguno</option></select></label>
       <label>Campo inicial <select id="simField"><option value="">Ninguno</option></select></label>
     </div>
+    <details class="builder-note" open><summary><strong>Equipos y órdenes por ronda</strong> (opcional)</summary>
+      <p>Los equipos se escriben con IDs separados por comas, en el orden de entrada. Si dejás un equipo vacío, se usa la entidad elegida arriba. Máximo ocho entidades diferentes por lado. Al caer una entidad entra automáticamente la siguiente disponible.</p>
+      <div class="builder-grid">
+        <label>Equipo izquierdo (IDs separados por comas)<textarea id="simLeftTeam" rows="2" placeholder="ejemplo: entidad-uno, entidad-dos"></textarea></label>
+        <label>Equipo derecho (IDs separados por comas)<textarea id="simRightTeam" rows="2" placeholder="ejemplo: rival-uno, rival-dos"></textarea></label>
+        <label>Órdenes izquierda (una línea por ronda)<textarea id="simLeftOrders" rows="4" placeholder="ataque-id&#10;cambiar:2&#10;ataque-id"></textarea></label>
+        <label>Órdenes derecha (una línea por ronda)<textarea id="simRightOrders" rows="4" placeholder="ataque-id&#10;cambiar:1&#10;ataque-id"></textarea></label>
+      </div>
+      <p>Una línea de orden es el <strong>ID de un ataque</strong>, <code>cambiar:2</code> para entrar con la tercera entidad (índices desde cero), o una línea vacía para ataque automático. Un cambio consume la acción de ese lado en esa ronda. Los ataques elegidos arriba se usan en las rondas sin orden.</p>
+    </details>
     <button type="button" id="simRun">Simular batalla</button>
     <p id="simStatus" role="status">Elegí dos entidades completas para comenzar.</p>
+    <div id="simVisual" class="builder-grid" aria-live="polite"></div>
     <pre id="simLog" style="white-space:pre-wrap;max-height:420px;overflow:auto" aria-label="Registro de combate"></pre>
-    <p class="help">Alcance actual: 1 contra 1; elige automáticamente el primer ataque ofensivo o el que elijás, usa PS enteros, prioridad, Velocidad, crítico, STAB y modificadores de tipo aditivos. Las acciones admitidas son daño, curación, cambio de estadísticas, estado, eliminación de estado, clima, campo, supresión temporal, restricción temporal y efectos reutilizables. No incluye aún cambios, Doubles, selección de ataque por turno ni todas las reglas avanzadas.</p>
+    <p class="help">Alcance actual: Singles por equipos de hasta ocho, con una entidad activa por lado; elige automáticamente el primer ataque ofensivo o el que elijás, usa PS enteros, prioridad, Velocidad, crítico, STAB y modificadores de tipo aditivos. Las acciones admitidas son daño, curación, cambio de estadísticas, estado, eliminación de estado, clima, campo, supresión temporal, restricción temporal y efectos reutilizables. Admite cambios y órdenes de ataque programadas por ronda; no incluye aún Doubles, controles interactivos en vivo ni todas las reglas avanzadas.</p>
   </section>
 
+  <section class="panel icon-panel" data-studio-view="type-icons" aria-labelledby="typeIconHeading" hidden>
+    <h2 id="typeIconHeading">Biblioteca de sprites de tipos</h2>
+    <p class="help">Subí un PNG individual para cada tipo. Podés reemplazarlo cuando quieras. No se altera la tabla de efectividades ni los sprites de entidades.</p>
+    <div class="icon-upload-layout"><div class="icon-upload-form">
+      <label for="iconType">Tipo al que pertenece</label><select id="iconType"></select>
+      <label for="iconFile">Imagen PNG (máximo 2 MB)</label><input type="file" id="iconFile" accept="image/png">
+      <p class="builder-note">Recomendación visual: imagen cuadrada con fondo transparente. Se guarda el PNG original, sin recortes ni cambios de resolución.</p>
+      <div class="icon-preview"><img id="iconPreview" alt="Vista previa del sprite seleccionado" hidden><span id="iconPreviewEmpty">Seleccioná un PNG para ver su vista previa.</span></div>
+      <button type="button" id="iconUpload">Guardar sprite del tipo</button><p id="iconStatus" role="status">Elegí el tipo y el archivo.</p>
+    </div><div><h3>Los 20 tipos</h3><p class="builder-note">Seleccioná una tarjeta para cambiar su sprite. Los iconos guardados se cargan desde R2 privado.</p><div id="typeIconGrid" class="icon-gallery"></div></div></div>
+  </section>
+  </main></div>
   <script>
     // ========================================
     // NOTAS DEL BORRADOR
@@ -898,21 +957,73 @@ const response = await fetch(
     let loadedDefinition = {};
     let advancedMode = false;
     let catalogLoadSequence = 0;
-    const typeOptions = chartTypes.map(([id,label]) => [id,label]);
+    let catalogDirty = false;
+    let catalogReady = false;
+    let catalogEntries = [];
+    const catalogSearch = document.getElementById('catalogSearch');
+    const catalogCount = document.getElementById('catalogCount');
+    const catalogDuplicate = document.getElementById('catalogDuplicate');
+    const catalogDirtyNotice = document.getElementById('catalogDirty');
+    function setCatalogDirty(value) {
+      catalogDirty = Boolean(value);
+      catalogDirtyNotice.hidden = !catalogDirty;
+      if (catalogDirty) catalogStatus.textContent = 'Cambios pendientes: guardá antes de cambiar de elemento.';
+    }
+    function confirmDiscard() { return !catalogDirty || confirm('Hay cambios sin guardar. ¿Descartarlos?'); }
+    function filterCatalog() {
+      const query = catalogSearch.value.trim().toLocaleLowerCase('es');
+      let shown = 0;
+      for (const button of catalogList.children) {
+        button.hidden = !button.textContent.toLocaleLowerCase('es').includes(query);
+        if (!button.hidden) shown++;
+      }
+      catalogCount.textContent = `${shown} de ${catalogEntries.length} elementos visibles`;
+    }
+    catalogSearch.addEventListener('input',filterCatalog);
+    const catalogTracked = ['catalogId','catalogName','catalogDescription','catalogDefinition','catalogBuilder'];
+    for (const key of catalogTracked) for (const eventName of ['input','change']) {
+      document.getElementById(key).addEventListener(eventName, () => { if (catalogReady) setCatalogDirty(true); });
+    }
+    document.getElementById('catalogBuilder').addEventListener('click',event=>{if(catalogReady && event.target.closest('button'))setCatalogDirty(true);});
+    window.addEventListener('beforeunload',event=>{if(catalogDirty){event.preventDefault();event.returnValue='';}});
+    document.addEventListener('keydown',event=>{
+      if ((event.ctrlKey||event.metaKey) && event.key.toLowerCase()==='s' && !event.altKey) {
+        event.preventDefault();if(!catalogSave.disabled)catalogSave.click();
+      }
+    });
+    const typeOptions = [["","Elegir tipo…"],...chartTypes.map(([id,label]) => [id,label])];
     const statOptions = [["hp","PS"],["attack","Ataque"],["defense","Defensa"],["specialAttack","Ataque especial"],["specialDefense","Defensa especial"],["speed","Velocidad"]];
-    const eventOptions = [["on_enter","Al entrar al campo"],["on_exit","Al salir del campo"],["turn_start","Inicio de turno"],["turn_end","Final de turno"],["round_end","Final de ronda"],["on_attack","Al atacar"],["on_hit","Al acertar"],["on_damage_taken","Al recibir daño"],["on_stat_drop","Al perder estadísticas"],["on_status","Al recibir un estado"],["on_switch","Al cambiar"],["on_ko","Al debilitar a alguien"],["manual","Al usar el ataque"]];
-    const conditionOptions = [["always","Siempre"],["hp_below","PS por debajo de (%)"],["hp_above","PS por encima de (%)"],["weather_is","Clima activo (ID)"],["field_is","Campo activo (ID)"],["has_status","Tiene estado (ID)"],["has_type","Tiene tipo (ID)"],["was_hit_by_type","Recibió tipo (ID)"],["stat_below","Estadística por debajo de"],["custom","Condición personalizada (ID)"]];
-    const targetOptions = [["self","Usuario"],["target","Objetivo"],["ally","Aliado"],["opponents","Rivales"],["all_allies","Aliados"],["all_active","Todos en campo"],["field","Campo"],["reserve","Reserva"]];
-    const actionOptions = [["damage","Causar daño"],["heal","Recuperar PS"],["stat_change","Modificar estadística"],["apply_status","Aplicar estado"],["remove_status","Eliminar estado"],["apply_effect","Aplicar efecto (ID)"],["remove_effect","Eliminar efecto (ID)"],["set_weather","Cambiar clima (ID)"],["set_field","Cambiar campo (ID)"],["suppress_abilities","Anular habilidades"],["restrict_moves","Restringir movimientos"],["change_critical","Modificar crítico"],["custom","Acción personalizada (ID)"]];
+    const eventOptions = [["","Elegir evento…"],["on_enter","Al entrar al campo"],["turn_start","Inicio de turno"],["turn_end","Final de turno"],["round_end","Final de ronda"],["on_attack","Al atacar"],["on_hit","Al acertar"],["on_damage_taken","Al recibir daño"],["manual","Al usar el ataque / efecto manual"]];
+    const conditionOptions = [["","Elegir condición…"],["always","Siempre"],["hp_below","PS por debajo de (%)"],["hp_above","PS por encima de (%)"],["weather_is","Clima activo (ID)"],["field_is","Campo activo (ID)"],["has_status","Tiene estado (ID)"],["has_type","Tiene tipo (ID)"],["was_hit_by_type","Recibió tipo (ID)"],["stat_below","Velocidad actual por debajo de"]];
+    const targetOptions = [["","Elegir objetivo…"],["self","Usuario"],["target","Rival / objetivo"],["all_active","Ambas entidades activas"]];
+    const actionOptions = [["","Elegir acción…"],["damage","Causar daño fijo (PS)"],["heal","Recuperar PS fijos"],["stat_change","Modificar niveles de estadística"],["apply_status","Aplicar estado (ID)"],["remove_status","Eliminar estado"],["apply_effect","Ejecutar efecto reutilizable (ID)"],["remove_effect","Eliminar efecto temporal (ID)"],["set_weather","Cambiar clima (ID)"],["set_field","Cambiar campo (ID)"],["suppress_abilities","Anular habilidades"],["restrict_moves","Restringir movimientos"]];
     const categoryBasics = {
       entities: [["spriteId","ID del sprite","text"],["types","Tipos (hasta 3)","types"],["hp","PS base","number"],["attack","Ataque base","number"],["defense","Defensa base","number"],["specialAttack","Ataque especial base","number"],["specialDefense","Defensa especial base","number"],["speed","Velocidad base","number"],["globalAbilityId","ID habilidad global","text"],["uniqueAbilityId","ID habilidad exclusiva","text"],["moveIds","IDs de 3 ataques globales","ids"],["uniqueMoveId","ID ataque exclusivo","text"]],
-      moves: [["type","Tipo del ataque","type"],["category","Categoría","category"],["power","Potencia","number"],["accuracy","Precisión (%)","number"],["criticalChance","Probabilidad crítico (%)","number"],["priority","Prioridad","number"]],
+      moves: [["kind","Clase del ataque","abilityKind"],["type","Tipo del ataque","type"],["category","Categoría","category"],["power","Potencia","number"],["accuracy","Precisión (%)","number"],["criticalChance","Probabilidad crítico (%)","number"],["priority","Prioridad","number"]],
       abilities: [["kind","Clase de habilidad","abilityKind"]],
       effects: [], weathers: [["duration","Duración (rondas, 0 = indefinida)","number"]],
       fields: [["duration","Duración (rondas, 0 = indefinida)","number"]],
       scenarios: [["imageId","ID de imagen / recurso","text"]],
       statuses: [["duration","Duración predeterminada (rondas)","number"]]
     };
+    const fieldExplanations = {
+      spriteId:'Identificador de un PNG previamente subido. El catálogo no verifica todavía que exista en R2.', types:'Elegí entre uno y tres tipos distintos; los espacios vacíos no añaden tipo.', hp:'PS máximos base enteros entre 1 y 200.', attack:'Ataque físico base entero entre 0 y 200.', defense:'Defensa física base entera entre 0 y 200.', specialAttack:'Ataque especial base entero entre 0 y 200.', specialDefense:'Defensa especial base entera entre 0 y 200.', speed:'Velocidad base entera entre 0 y 200.', globalAbilityId:'Habilidad compartida ya guardada. Debe ser de clase global.', uniqueAbilityId:'Habilidad exclusiva ya guardada. Debe ser de clase exclusiva.', moveIds:'Tres identificadores distintos de ataques compartidos, separados por comas.', uniqueMoveId:'Cuarto ataque, exclusivo y distinto de los anteriores.', type:'Tipo único de este ataque.', kind:'Clase del ataque: global se puede reutilizar; exclusivo pertenece a una sola entidad.', category:'Físico usa Ataque/Defensa; Especial usa estadísticas especiales; Estado no causa daño base.', power:'Potencia base entre 0 y 500. El valor 0 no causa daño base.', accuracy:'Probabilidad de acierto entre 0 y 100 %. El laboratorio no admite todavía la opción nunca falla.', criticalChance:'Probabilidad de crítico entre 0 y 50 %. El crítico añade 50 % al daño final.', priority:'Entero entre −5 y +5; desempata la Velocidad.', kind:'Global se puede reutilizar; exclusiva se reserva a una entidad. Elegí una clase antes de guardar.', duration:'Rondas de vigencia. En el laboratorio 0 en clima/campo equivale a permanecer durante la prueba.', imageId:'Identificador del recurso visual del escenario. Todavía no se dibuja en el simulador.'
+    };
+    const ruleExplanations = {
+      event:'Momento en que el motor evalúa la regla. «Al usar» se evalúa al ejecutar un ataque o un efecto manual; los demás eventos se evalúan para habilidades.', conditionType:'Primera condición. «Siempre» no necesita valor. Los porcentajes de PS se comparan de forma estricta (menor/mayor, no igual).', conditionValue:'Número o identificador requerido por la condición. Para «Siempre», dejalo vacío. «Velocidad por debajo» compara la velocidad actual.', target:'Entidad que recibe la acción. En Singles «ambas entidades» afecta a los dos participantes. Clima y campo se aplican globalmente, independientemente del objetivo.', actionType:'Operación concreta. Solo se muestran acciones que el motor actual reconoce; no implica que el sistema competitivo esté terminado.', actionValue:'Cantidad fija, niveles de estadística o ID según la acción. «Eliminar estado», «anular habilidades» y «restringir movimientos» no requieren valor.', operator:'Combina la condición principal con las adicionales en orden de arriba abajo. Y requiere ambas; O requiere una. No hay paréntesis anidados.', negate:'Invierte el resultado de todas las condiciones de esta regla.', stat:'Estadística modificada si elegiste «modificar niveles». Los PS no admiten niveles.', chance:'Probabilidad independiente de activación de esta regla, entre 0 y 100. Es obligatoria: elegí 0 si nunca debe activarse.', duration:'Duración en rondas de la acción, entre 0 y 9999. Para estados y efectos temporales 0 no significa indefinido; revisá la guía de limitaciones.', limit:'Máximo de activaciones por habilidad durante la prueba. 0 significa sin límite; no se reinicia al cambiar de ronda.'
+    };
+    function showMechanicHelp(){
+      const el=document.getElementById('mechanicHelp'); if(!el)return;
+      el.replaceChildren();
+      const intro=document.createElement('p');intro.textContent='Una regla = un evento + una condición + un objetivo + una acción. Agregá otra regla para encadenar otra acción. Las condiciones adicionales usan Y/O/NO de izquierda a derecha; no hay agrupación anidada.';el.append(intro);
+      const all={...fieldExplanations,...ruleExplanations};
+      for(const [key,description] of Object.entries(all)){
+        const field=categoryBasics[catalogCategory.value]?.find(x=>x[0]===key);
+        if(field||Object.hasOwn(ruleExplanations,key)){
+          const p=document.createElement('p');const b=document.createElement('strong');b.textContent=(field?.[1]||({event:'Evento',conditionType:'Condición',conditionValue:'Valor de condición',target:'Objetivo',actionType:'Acción',actionValue:'Valor de acción',operator:'Operador Y/O',negate:'Negar condición',stat:'Estadística',chance:'Probabilidad',duration:'Duración',limit:'Límite de activaciones'}[key]||key))+': ';p.append(b,document.createTextNode(description));el.append(p);
+        }
+      }
+    }
     function optionSelect(options, value) {
       const select = document.createElement("select");
       for (const [id,label] of options) { const option = new Option(label,id); select.add(option); }
@@ -947,12 +1058,12 @@ const response = await fetch(
     }
     function fieldControl(kind,value) {
       if (kind === "type") return optionSelect(typeOptions,value);
-      if (kind === "category") return optionSelect([["physical","Físico"],["special","Especial"],["status","Estado"]],value);
-      if (kind === "abilityKind") return optionSelect([["global","Global"],["unique","Exclusiva"]],value);
+      if (kind === "category") return optionSelect([["","Elegir categoría…"],["physical","Físico"],["special","Especial"],["status","Estado"]],value);
+      if (kind === "abilityKind") return optionSelect([["","Elegir clase…"],["global","Global"],["unique","Exclusiva"]],value);
       if (kind === "types") {
         const box = document.createElement("div"); box.className = "builder-grid";
         const values = Array.isArray(value) ? value : [];
-        for (let i=0;i<3;i++) { const choices = [["","Sin tipo"],...typeOptions]; const select = optionSelect(choices,values[i] || ""); select.dataset.typeSlot = String(i); box.append(select); }
+        for (let i=0;i<3;i++) { const choices = [["","Sin tipo"],...typeOptions.filter(x=>x[0])]; const select = optionSelect(choices,values[i] || ""); select.dataset.typeSlot = String(i); box.append(select); }
         return box;
       }
       const input = document.createElement("input");
@@ -984,23 +1095,23 @@ const response = await fetch(
     function addRule(rule = {}) {
       const row = document.createElement("div"); row.className = "builder-row";
       const grid = document.createElement("div"); grid.className = "builder-grid";
-      labeledControl(grid,"Evento",optionSelect(eventOptions,rule.event),"event");
-      labeledControl(grid,"Condición",optionSelect(conditionOptions,rule.condition?.type || "always"),"conditionType");
+      labeledControl(grid,"Evento",optionSelect(eventOptions,rule.event ?? ""),"event");
+      labeledControl(grid,"Condición",optionSelect(conditionOptions,rule.condition?.type ?? ""),"conditionType");
       labeledControl(grid,"Valor de condición",fieldControl("text",rule.condition?.value),"conditionValue");
-      labeledControl(grid,"Objetivo",optionSelect(targetOptions,rule.target),"target");
-      labeledControl(grid,"Acción",optionSelect(actionOptions,rule.action?.type || "damage"),"actionType");
+      labeledControl(grid,"Objetivo",optionSelect(targetOptions,rule.target ?? ""),"target");
+      labeledControl(grid,"Acción",optionSelect(actionOptions,rule.action?.type ?? ""),"actionType");
       labeledControl(grid,"Valor de acción / ID",fieldControl("text",rule.action?.value),"actionValue");
       labeledControl(grid,"Operador del grupo",optionSelect([["AND","Y"],["OR","O"]],rule.operator||"AND"),"operator");
       labeledControl(grid,"Negar condición",optionSelect([["false","No"],["true","Sí"]],String(rule.negate||false)),"negate");
       labeledControl(grid,"Estadística (si aplica)",optionSelect([["","Ninguna"],...statOptions],rule.action?.stat || ""),"stat");
-      labeledControl(grid,"Probabilidad (%)",fieldControl("number",rule.chance ?? 100),"chance");
-      labeledControl(grid,"Duración (rondas)",fieldControl("number",rule.duration ?? 0),"duration");
-      labeledControl(grid,"Límite de activaciones (0 = sin límite)",fieldControl("number",rule.limit ?? 0),"limit");
+      labeledControl(grid,"Probabilidad (%)",fieldControl("number",rule.chance),"chance");
+      labeledControl(grid,"Duración (rondas)",fieldControl("number",rule.duration),"duration");
+      labeledControl(grid,"Límite de activaciones (0 = sin límite)",fieldControl("number",rule.limit),"limit");
       const extra=document.createElement('div');extra.className='builder-grid';extra.dataset.extraConditions='';
       function appendCondition(c={}) {
         const item=document.createElement('div');item.className='builder-row';
         const operator=optionSelect([["AND","Y"],["OR","O"]],c.operator||'AND');operator.dataset.conditionPart='operator';
-        const type=optionSelect(conditionOptions,c.type||'always');type.dataset.conditionPart='type';
+        const type=optionSelect(conditionOptions,c.type??'');type.dataset.conditionPart='type';
         const value=fieldControl('text',c.value);value.dataset.conditionPart='value';value.placeholder='Valor / ID';
         const negate=document.createElement('input');negate.type='checkbox';negate.checked=!!c.negate;negate.dataset.conditionPart='negate';
         const label=document.createElement('label');label.textContent='NO';label.append(negate);
@@ -1014,7 +1125,7 @@ const response = await fetch(
     }
     function renderBuilder(definition) {
       loadedDefinition = structuredClone(definition);
-      addBasicFields(definition);
+      addBasicFields(definition); showMechanicHelp();
       builderRules.replaceChildren();
       for (const rule of Array.isArray(definition.rules) ? definition.rules : []) addRule(rule);
       catalogDefinition.value = JSON.stringify(definition,null,2);
@@ -1035,7 +1146,7 @@ const response = await fetch(
           event: val("event"), condition: {type:val("conditionType"),value:val("conditionValue")},
           conditions: [...row.querySelectorAll('[data-extra-conditions] > .builder-row')].map(item=>({operator:item.querySelector('[data-condition-part="operator"]').value,type:item.querySelector('[data-condition-part="type"]').value,value:item.querySelector('[data-condition-part="value"]').value,negate:item.querySelector('[data-condition-part="negate"]').checked})),
           target:val("target"), action:{type:val("actionType"),value:val("actionValue"),stat:val("stat")},
-          chance:Number(val("chance")),duration:Number(val("duration")),limit:Number(val("limit")),operator:val("operator"),negate:val("negate")==="true"
+          chance:val("chance")===""?null:Number(val("chance")),duration:val("duration")===""?null:Number(val("duration")),limit:val("limit")===""?null:Number(val("limit")),operator:val("operator"),negate:val("negate")==="true"
         };
       });
       return result;
@@ -1044,11 +1155,14 @@ const response = await fetch(
       selectedCatalogId = null;
       catalogId.value = ""; catalogId.disabled = false;
       catalogName.value = ""; catalogDescription.value = "";
-      catalogDelete.disabled = true; renderBuilder({});
+      catalogDelete.disabled = true; catalogDuplicate.disabled = true; renderBuilder({});
+      catalogList.querySelectorAll('button').forEach(b=>b.removeAttribute('aria-current'));
+      setCatalogDirty(false);
     }
     function catalogUrl(id = "") { return "/editor-api/catalog/" + catalogCategory.value + (id ? "/" + encodeURIComponent(id) : ""); }
     async function loadCatalog() {
       const seq = ++catalogLoadSequence;
+      catalogReady = false;
       resetCatalogForm(); catalogList.replaceChildren(); catalogStatus.textContent = "Cargando catálogo...";
       const category = catalogCategory.value;
       try {
@@ -1056,22 +1170,46 @@ const response = await fetch(
         const data = await response.json();
         if (!response.ok || !data.ok) throw new Error(data.error || "No se pudo consultar.");
         if (seq !== catalogLoadSequence || category !== catalogCategory.value) return;
-        for (const entry of data.entries.sort((a,b) => a.name.localeCompare(b.name))) {
+        catalogEntries = data.entries.sort((a,b) => a.name.localeCompare(b.name));
+        for (const entry of catalogEntries) {
           const button = document.createElement("button"); button.type = "button";
           button.textContent = entry.name + " (" + entry.id + ")";
           button.addEventListener("click", () => {
+            if (!confirmDiscard()) return;
+            catalogReady = false;
             selectedCatalogId = entry.id; catalogId.value = entry.id; catalogId.disabled = true;
             catalogName.value = entry.name; catalogDescription.value = entry.description;
-            renderBuilder(entry.definition); catalogDelete.disabled = false;
+            renderBuilder(entry.definition); catalogDelete.disabled = false; catalogDuplicate.disabled = false;
+            catalogList.querySelectorAll('button').forEach(b=>b.removeAttribute('aria-current'));
+            button.setAttribute('aria-current','true');
+            setCatalogDirty(false); catalogReady = true;
             catalogStatus.textContent = "Elemento cargado: " + entry.name;
           });
           catalogList.append(button);
         }
+        catalogReady = true; filterCatalog();
         catalogStatus.textContent = data.cursor ? "Hay más de 1000 registros; falta paginación." : data.entries.length + " elementos cargados.";
       } catch (error) { if (seq === catalogLoadSequence) catalogStatus.textContent = "Error: " + error.message; }
     }
-    catalogCategory.addEventListener("change", loadCatalog);
-    document.getElementById("catalogNew").addEventListener("click", () => { resetCatalogForm(); catalogStatus.textContent = "Nuevo elemento sin guardar."; });
+    catalogCategory.addEventListener('change', () => {if (!confirmDiscard()) {catalogCategory.value=previousCatalogCategory;return;}previousCatalogCategory=catalogCategory.value;loadCatalog();});
+    let previousCatalogCategory = catalogCategory.value;
+    document.getElementById("catalogNew").addEventListener("click", () => { if(!confirmDiscard())return;catalogReady=false;resetCatalogForm();catalogReady=true;catalogStatus.textContent = "Nuevo elemento sin guardar."; });
+    catalogDuplicate.addEventListener('click',()=>{
+      if(!selectedCatalogId || !confirmDiscard())return;
+      const definition = advancedMode ? catalogDefinition.value : JSON.stringify(readBuilder());
+      const oldName = catalogName.value;
+      catalogReady=false;selectedCatalogId=null;catalogId.value='';catalogId.disabled=false;
+      catalogName.value=oldName+' (copia)';catalogDelete.disabled=true;catalogDuplicate.disabled=true;
+      catalogList.querySelectorAll('button').forEach(b=>b.removeAttribute('aria-current'));
+      if(advancedMode)catalogDefinition.value=definition;else renderBuilder(JSON.parse(definition));
+      catalogReady=true;setCatalogDirty(true);catalogId.focus();
+      catalogStatus.textContent='Copia sin guardar: elegí un identificador nuevo.';
+    });
+    document.getElementById('catalogExport').addEventListener('click',()=>{
+      const blob=new Blob([JSON.stringify({category:catalogCategory.value,exportedAt:new Date().toISOString(),entries:catalogEntries},null,2)],{type:'application/json'});
+      const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=`universal-duels-${catalogCategory.value}.json`;link.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    });
     document.getElementById("builderAddRule").addEventListener("click",()=>addRule());
     advancedToggle.addEventListener("click", () => {
       if (!advancedMode) catalogDefinition.value = JSON.stringify(readBuilder(),null,2);
@@ -1094,7 +1232,7 @@ const response = await fetch(
       try {
         definition = advancedMode ? JSON.parse(catalogDefinition.value) : readBuilder();
         if (!definition || typeof definition !== "object" || Array.isArray(definition)) throw Error();
-        if (Array.isArray(definition.rules) && definition.rules.some(rule => rule.chance < 0 || rule.chance > 100 || rule.duration < 0 || rule.limit < 0)) throw Error("Probabilidad, duración o límite inválidos.");
+        if (Array.isArray(definition.rules)) for(const [i,rule] of definition.rules.entries()) { if(!rule.event||!rule.target||!rule.action?.type||!rule.condition?.type) throw Error(`Regla ${i+1}: elegí evento, condición, objetivo y acción.`); for(const key of ["chance","duration","limit"]) if(rule[key]===null||!Number.isFinite(rule[key])) throw Error(`Regla ${i+1}: completá ${key}; no se asigna automáticamente.`); if(rule.chance<0||rule.chance>100||rule.duration<0||rule.limit<0) throw Error(`Regla ${i+1}: valores fuera de rango.`); }
       } catch (error) { catalogStatus.textContent = error.message || "Configuración inválida."; return; }
       catalogSave.disabled = true; catalogStatus.textContent = "Guardando...";
       try {
@@ -1104,13 +1242,13 @@ const response = await fetch(
         await loadCatalog();
         await refreshReferences();
         const savedButton = [...catalogList.children].find(button => button.textContent.endsWith("(" + id + ")"));
-        if (savedButton) savedButton.click();
+        if (savedButton) {setCatalogDirty(false);savedButton.click();}
         catalogStatus.textContent = "Guardado en KV ✓";
       } catch (error) { catalogStatus.textContent = "Error: " + error.message; }
       finally { catalogSave.disabled = false; }
     });
     catalogDelete.addEventListener("click", async () => {
-      if (!selectedCatalogId || !confirm("¿Eliminar " + selectedCatalogId + "? Esta acción no se puede deshacer.")) return;
+      if (!selectedCatalogId || !confirmDiscard() || !confirm("¿Eliminar " + selectedCatalogId + "? Esta acción no se puede deshacer.")) return;
       try {
         const response = await fetch(catalogUrl(selectedCatalogId), { method: "DELETE" });
         if (!response.ok) throw new Error("No se pudo eliminar.");
@@ -1133,12 +1271,25 @@ const response = await fetch(
     document.getElementById('simRight').addEventListener('change',refreshSimMoves);
     document.getElementById('simRun').addEventListener('click',async()=>{
       const status=document.getElementById('simStatus'),log=document.getElementById('simLog');
-      status.textContent='Simulando...';log.textContent='';
+      status.textContent='Simulando...';log.textContent='';document.getElementById('simVisual').replaceChildren();
       try {
-        const response=await fetch('/editor-api/simulate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({left:document.getElementById('simLeft').value,right:document.getElementById('simRight').value,turns:Number(document.getElementById('simTurns').value),seed:Number(document.getElementById('simSeed').value),weather:document.getElementById('simWeather').value,field:document.getElementById('simField').value,leftMove:document.getElementById('simLeftMove').value,rightMove:document.getElementById('simRightMove').value})});
+        const team=id=>document.getElementById(id).value.trim().split(',').map(x=>x.trim()).filter(Boolean);
+        const orders=id=>document.getElementById(id).value.split('\n').map(x=>{x=x.trim();if(!x)return null;if(x.startsWith('cambiar:'))return {switch:Number(x.slice(8))};return {move:x};});
+        const response=await fetch('/editor-api/simulate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({leftTeam:team('simLeftTeam').length?team('simLeftTeam'):undefined,rightTeam:team('simRightTeam').length?team('simRightTeam'):undefined,leftOrders:orders('simLeftOrders'),rightOrders:orders('simRightOrders'),left:document.getElementById('simLeft').value,right:document.getElementById('simRight').value,turns:Number(document.getElementById('simTurns').value),seed:Number(document.getElementById('simSeed').value),weather:document.getElementById('simWeather').value,field:document.getElementById('simField').value,leftMove:document.getElementById('simLeftMove').value,rightMove:document.getElementById('simRightMove').value})});
         const data=await response.json();if(!response.ok)throw Error(data.error||'Error de simulación');
         status.textContent=`${data.left.name}: ${data.left.hp}/${data.left.maxHp} PS · ${data.right.name}: ${data.right.hp}/${data.right.maxHp} PS · Ganador: ${data.winner||'Empate'}`;
         log.textContent=data.log.join('\n');
+        const visual=document.getElementById('simVisual');
+        for(const [side,team] of [['Izquierda',data.leftTeam],['Derecha',data.rightTeam]]){
+          const panel=document.createElement('div');panel.className='builder-note';
+          const title=document.createElement('strong');title.textContent=side+' · '+team.filter(x=>x.hp>0).length+'/'+team.length+' disponibles';panel.append(title);
+          for(const unit of team){
+            const line=document.createElement('p');line.style.margin='8px 0';line.textContent=unit.name+' · '+unit.hp+'/'+unit.maxHp+' PS';
+            const bar=document.createElement('progress');bar.max=unit.maxHp;bar.value=unit.hp;bar.style.width='100%';line.append(document.createElement('br'),bar);panel.append(line);
+          }
+          visual.append(panel);
+        }
+        const rounds=document.createElement('p');rounds.className='builder-note';rounds.textContent='Rondas jugadas: '+data.rounds+' · Resultado: '+(data.winner==='left'?'gana izquierda':data.winner==='right'?'gana derecha':'sin ganador definitivo');visual.append(rounds);
       }catch(e){status.textContent='Error: '+e.message;}
     });
     loadCatalog();
@@ -1146,6 +1297,74 @@ const response = await fetch(
 
     // Iniciar editor.
     loadDraft();
+
+    // Navegación y recursos visuales: no cambian la lógica del catálogo.
+    const viewTitles = {home:['INICIO','Tu espacio de creación','Sprites de entidades y notas privadas.'],types:['TIPOS','Tabla de efectividades','Definí cada relación ofensiva y defensiva.'],'type-icons':['RECURSOS','Sprites de tipos','Cargá y reemplazá los iconos pixel art de los 20 tipos.'],catalog:['CATÁLOGO','Editor de contenido','Elegí cada parámetro y guardá en el servidor privado.'],sim:['PRUEBAS','Laboratorio de batalla','Probá entidades y reglas compatibles con el motor actual.']};
+    const categoryTitles={entities:'Entidades',moves:'Ataques',abilities:'Habilidades',effects:'Efectos',statuses:'Estados alterados',weathers:'Climas',fields:'Campos',scenarios:'Escenarios'};
+    function showStudioView(view,category){
+      if(view!=='catalog' && catalogDirty && !confirmDiscard())return;
+      if(view==='catalog'&&category&&catalogCategory.value!==category){
+        if(!confirmDiscard())return;
+        catalogCategory.value=category;previousCatalogCategory=category;loadCatalog();
+      }
+      document.querySelectorAll('[data-studio-view]').forEach(p=>p.hidden=p.dataset.studioView!==view);
+      document.querySelectorAll('.studio-nav').forEach(b=>b.classList.toggle('active',b.dataset.view===view&&(view!=='catalog'||b.dataset.category===catalogCategory.value)));
+      const info=viewTitles[view];document.getElementById('viewEyebrow').textContent='ESTUDIO / '+info[0];document.getElementById('viewTitle').textContent=view==='catalog'?categoryTitles[catalogCategory.value]:info[1];document.getElementById('viewDescription').textContent=info[2];
+      if(view==='type-icons')loadTypeIcons();
+      if(view==='catalog')updateEntityPreview();
+      history.replaceState(null,'',location.pathname+'#'+(view==='catalog'?'catalog-'+catalogCategory.value:view));
+      window.scrollTo({top:0,behavior:'instant'});
+    }
+    document.querySelectorAll('.studio-nav').forEach(b=>b.addEventListener('click',()=>showStudioView(b.dataset.view,b.dataset.category)));
+    catalogCategory.addEventListener('change',()=>{if(!document.querySelector('[data-studio-view="catalog"]').hidden)showStudioView('catalog',catalogCategory.value);});
+    const iconType=document.getElementById('iconType'),iconFile=document.getElementById('iconFile'),iconPreview=document.getElementById('iconPreview'),iconPreviewEmpty=document.getElementById('iconPreviewEmpty'),iconStatus=document.getElementById('iconStatus'),iconGrid=document.getElementById('typeIconGrid');
+    chartTypes.forEach(([id,name])=>{const o=document.createElement('option');o.value=id;o.textContent=name;iconType.append(o)});
+    let iconObjectUrl=null;
+    iconFile.addEventListener('change',()=>{if(iconObjectUrl)URL.revokeObjectURL(iconObjectUrl);const f=iconFile.files[0];iconPreview.hidden=!f;iconPreviewEmpty.hidden=!!f;if(f){iconObjectUrl=URL.createObjectURL(f);iconPreview.src=iconObjectUrl;}});
+    function typeIconUrl(id){return '/editor-api/type-icons/'+encodeURIComponent(id)}
+    async function loadTypeIcons(){
+      iconGrid.replaceChildren();iconStatus.textContent='Cargando biblioteca...';
+      try{
+        const r=await fetch('/editor-api/type-icons',{cache:'no-store'}),data=await r.json();if(!r.ok)throw Error(data.error||'No se pudo cargar');
+        const existing=new Set(data.types||[]);
+        for(const [id,name] of chartTypes){const b=document.createElement('button');b.type='button';b.className='icon-card'+(iconType.value===id?' selected':'');const has=existing.has(id);
+          if(has){const im=document.createElement('img');im.src=typeIconUrl(id)+'?v='+Date.now();im.alt='Sprite de '+name;b.append(im)}else{const sp=document.createElement('span');sp.className='empty-icon';sp.textContent='+';b.append(sp)}
+          const title=document.createElement('strong');title.textContent=name;b.append(title);const small=document.createElement('small');small.textContent=has?'Sprite guardado':'Sin sprite';b.append(small);
+          b.addEventListener('click',()=>{iconType.value=id;iconGrid.querySelectorAll('.icon-card').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');iconStatus.textContent='Tipo seleccionado: '+name});iconGrid.append(b);
+        }
+        iconStatus.textContent=existing.size+' de '+chartTypes.length+' sprites cargados.';
+      }catch(e){iconStatus.textContent='Error: '+e.message}
+    }
+    document.getElementById('iconUpload').addEventListener('click',async()=>{
+      const file=iconFile.files[0],id=iconType.value;if(!file){iconStatus.textContent='Seleccioná un PNG.';return}if(file.type!=='image/png'||file.size>2*1024*1024||file.size===0){iconStatus.textContent='El archivo debe ser PNG y pesar entre 1 byte y 2 MB.';return}
+      const button=document.getElementById('iconUpload');button.disabled=true;iconStatus.textContent='Guardando '+id+'...';
+      try{const r=await fetch('/editor-api/type-icons/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'image/png'},body:file});const d=await r.json();if(!r.ok)throw Error(d.error||'No se pudo guardar');iconStatus.textContent='Sprite de '+id+' guardado ✓';await loadTypeIcons();iconStatus.textContent='Sprite de '+id+' guardado ✓';}
+      catch(e){iconStatus.textContent='Error: '+e.message}finally{button.disabled=false}
+    });
+    // Miniatura de entidades: la mitad izquierda del PNG existente es la vista frontal.
+    const entityPreview=document.createElement('div');entityPreview.className='entity-sprite-preview';entityPreview.hidden=true;
+    document.getElementById('catalogBuilder').before(entityPreview);
+    function updateEntityPreview(){
+      entityPreview.replaceChildren();entityPreview.hidden=true;if(catalogCategory.value!=='entities')return;
+      const spriteInput=document.querySelector('[data-field="spriteId"]')||document.querySelector('[name="spriteId"]');
+      let id=spriteInput?.value?.trim();if(!id){try{id=readBuilder().spriteId}catch{}}
+      if(!id||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id))return;
+      const im=document.createElement('img');im.src='/editor-api/sprites/'+encodeURIComponent(id);im.alt='Vista frontal del sprite '+id;
+      const caption=document.createElement('span');caption.textContent='Vista frontal · '+id+' (la mitad izquierda del PNG)';
+      im.onerror=()=>{caption.textContent='No se encontró el sprite '+id+' en R2.';im.remove()};entityPreview.append(im,caption);entityPreview.hidden=false;
+    }
+    document.getElementById('catalogBuilder').addEventListener('change',updateEntityPreview);
+    document.getElementById('catalogBuilder').addEventListener('input',e=>{if(e.target.matches('input'))updateEntityPreview()});
+    const oldRenderList=loadCatalog;
+    // Mejora visual de elementos ya cargados, sin alterar los eventos de edición.
+    const listObserver=new MutationObserver(()=>{if(catalogCategory.value!=='entities')return;for(const b of catalogList.querySelectorAll('button:not([data-decorated])')){
+      b.dataset.decorated='true';const match=b.textContent.match(/\(([^()]+)\)$/);const entry=cachedCatalog.entities?.find(x=>x.id===match?.[1]);
+      if(!entry?.definition?.spriteId)continue;
+      b.classList.add('entity-item');const img=document.createElement('img');img.className='catalog-sprite-thumb';img.src='/editor-api/sprites/'+encodeURIComponent(entry.definition.spriteId);img.alt='';img.onerror=()=>img.remove();b.prepend(img);
+    }});
+    listObserver.observe(catalogList,{childList:true});
+    const requested=location.hash.slice(1);const cat=requested.startsWith('catalog-')?requested.slice(8):null;
+    showStudioView(cat&&categoryTitles[cat]?'catalog':viewTitles[requested]?requested:'home',cat&&categoryTitles[cat]?cat:undefined);
   </script>
 
 </body>
