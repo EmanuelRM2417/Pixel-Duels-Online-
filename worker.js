@@ -118,7 +118,68 @@ export default {
         });
       }
 
-      // Recuperar borrador.
+
+      // Subir imagen original de una entidad.
+if (
+  url.pathname === "/editor-api/sprites" &&
+  request.method === "POST"
+) {
+  if (!env.EDITOR_SPRITES) {
+    return privateJson({
+      error: "El almacenamiento de sprites no está conectado."
+    }, 500);
+  }
+
+  const origin = request.headers.get("Origin");
+
+  if (origin !== url.origin) {
+    return privateJson({
+      error: "Origen no autorizado."
+    }, 403);
+  }
+
+  const contentType = request.headers.get("Content-Type") || "";
+
+  if (!contentType.toLowerCase().startsWith("image/png")) {
+    return privateJson({
+      error: "Solo se permiten archivos PNG."
+    }, 415);
+  }
+
+  const maxSize = 2 * 1024 * 1024;
+  const bytes = await request.arrayBuffer();
+
+  if (bytes.byteLength === 0 || bytes.byteLength > maxSize) {
+    return privateJson({
+      error: "El PNG debe pesar entre 1 byte y 2 MB."
+    }, 413);
+  }
+
+  const signature = new Uint8Array(bytes).slice(0, 8);
+  const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
+
+  if (!pngSignature.every((value, i) => signature[i] === value)) {
+    return privateJson({
+      error: "El archivo no es un PNG válido."
+    }, 415);
+  }
+
+  const spriteId = crypto.randomUUID();
+  const key = `drafts/${spriteId}.png`;
+
+  await env.EDITOR_SPRITES.put(key, bytes, {
+    httpMetadata: {
+      contentType: "image/png"
+    }
+  });
+
+  return privateJson({
+    ok: true,
+    spriteId,
+    message: "Sprite original guardado como borrador."
+  });
+}
+      
       if (
         url.pathname === "/editor-api/draft" &&
         request.method === "GET"
