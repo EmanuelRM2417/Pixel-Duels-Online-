@@ -52,10 +52,20 @@ export default {
       }
 
           
-      if (url.pathname === "/editor-api/draft") {
+          
+    if (url.pathname === "/editor-api/draft") {
+      const identity = await verifyEditorAccess(request, env);
+
+      if (!identity) {
+        return json({
+          ok: false,
+          error: "Acceso no autorizado."
+        }, 401);
+      }
+
       return json({
         ok: false,
-        error: "El guardado privado todavía no está habilitado."
+        error: "Identidad verificada. El guardado todavía no está habilitado."
       }, 503);
     }
       
