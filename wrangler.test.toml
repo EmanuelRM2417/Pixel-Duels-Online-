@@ -12,7 +12,7 @@ new_sqlite_classes = ["Room"]
 
 [[kv_namespaces]]
 binding = "EDITOR_DRAFTS"
-id = "PEGA_AQUI_EL_NAMESPACE_ID_DE_PRUEBAS"
+id = "453d2d63210e42149663b5771e76a803"
 
 [assets]
 directory = "./public"
