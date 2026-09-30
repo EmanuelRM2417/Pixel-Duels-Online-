@@ -6,6 +6,36 @@ const cors = {
 };
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
+
+async function verifyEditorAccess(request, env) {
+  try {
+    const token = request.headers.get("Cf-Access-Jwt-Assertion");
+
+    if (!token || !env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) {
+      return null;
+    }
+
+    const teamDomain = env.ACCESS_TEAM_DOMAIN
+      .replace(/^https?:\/\//, "")
+      .replace(/\/+$/, "");
+
+    const issuer = `https://${teamDomain}`;
+
+    const keys = createRemoteJWKSet(
+      new URL(`${issuer}/cdn-cgi/access/certs`)
+    );
+
+    const { payload } = await jwtVerify(token, keys, {
+      issuer,
+      audience: env.ACCESS_AUD
+    });
+
+    return payload;
+  } catch (error) {
+    return null;
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
