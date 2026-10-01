@@ -123,7 +123,7 @@ function tick(actor) { for (const e of actor.effects) if (e.turns > 0) e.turns--
 // Laboratorio de equipos: hasta ocho entidades por lado, una activa (Singles).
 // Las órdenes son datos declarativos, nunca código del usuario.
 export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,randomTape=[],randomSource,weather='',field='',scenario='',leftMove='',rightMove='',leftOrders=[],rightOrders=[]}) {
-  if (!Number.isInteger(turns) || turns < 1 || turns > 50) throw Error('Rondas entre 1 y 50.');
+  if (!Number.isInteger(turns) || turns < 0 || turns > 50) throw Error('Rondas entre 0 y 50.');
   if (!Array.isArray(randomTape) || randomTape.length > 30000 || randomTape.some(v=>typeof v!=='number'||!Number.isFinite(v)||v<0||v>=1)) throw Error('Historial RNG inválido.');
   const tape=randomTape.slice();
   let cursor=0;

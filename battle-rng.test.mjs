@@ -14,3 +14,14 @@ assert.deepEqual(third,second,'replay preserves random outcomes');
 const fourth=simulate({...base,turns:1,leftMove:'fire',rightMove:'fire',randomSource:()=>0.99});
 assert.ok(fourth.log.some(x=>x.includes('usa fire')),'manual move is not replaced by RNG');
 console.log('PASS: RNG auto skips immunity, manual turn choice, random replay, no user seed');
+
+// Regresión: preparar una batalla manual con turns=0 no puede resolver rondas.
+{
+  const preview = simulate({...base,turns:0,randomTape:[],randomSource:()=>0.25});
+  assert.equal(preview.rounds,0);
+  assert.equal(preview.timeline.length,1);
+  assert.equal(preview.timeline[0].round,0);
+  assert.equal(preview.left.hp,preview.left.maxHp);
+  assert.equal(preview.right.hp,preview.right.maxHp);
+  assert.equal(preview.log.some(line=>line.startsWith('— Ronda ')),false);
+}
