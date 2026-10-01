@@ -180,7 +180,7 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
   // Los entornos de prueba solo se activan si existe su definición en el catálogo.
   for(const [key,id,kind] of [['weather',weather,'weathers'],['field',field,'fields'],['scenario',scenario,'scenarios']])if(id){
     if(!catalog[kind]?.[id])throw Error('Entorno no encontrado: '+kind+'/'+id);
-    state[key]=id;state[key+'Turns']=5;state.log.push('Entorno inicial '+id+' (5 rondas).');
+    state[key]=id;state[key+'Turns']=5;state.log.push('Entorno inicial: '+catalog[kind][id].name+' (5 rondas).');
   }
   snapshot(0);
   const envKinds=[['weather','weathers'],['field','fields'],['scenario','scenarios']];
@@ -252,5 +252,5 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
   }
   const leftAlive=remaining(0),rightAlive=remaining(1);
   const winner=leftAlive&&!rightAlive?'left':rightAlive&&!leftAlive?'right':null;
-  return {ok:true,mode:'private-singles-team-simulation',rounds:played,winner,winnerId:winner==='left'?current(0).id:winner==='right'?current(1).id:null,left:summary(current(0)),right:summary(current(1)),leftTeam:teams[0].map(summary),rightTeam:teams[1].map(summary),weather:state.weather,field:state.field,scenario:state.scenario,log:state.log.slice(0,1500),timeline:state.timeline,randomTape:tape.slice(0,cursor)};
+  return {ok:true,mode:'private-singles-team-simulation',rounds:played,winner,winnerId:winner==='left'?current(0).id:winner==='right'?current(1).id:null,left:summary(current(0)),right:summary(current(1)),leftTeam:teams[0].map(summary),rightTeam:teams[1].map(summary),weather:state.weather,field:state.field,scenario:state.scenario,weatherTurns:state.weatherTurns,fieldTurns:state.fieldTurns,scenarioTurns:state.scenarioTurns,log:state.log.slice(0,1500),timeline:state.timeline,randomTape:tape.slice(0,cursor)};
 }
