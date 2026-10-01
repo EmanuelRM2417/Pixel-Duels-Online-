@@ -2,9 +2,11 @@
 export const EVENTS = ['on_enter','turn_start','turn_end','round_end','on_attack','on_hit','on_damage_taken','manual'];
 export const CONDITIONS = ['always','hp_below','hp_above','weather_is','field_is','has_status','has_type','was_hit_by_type','stat_below'];
 export const TARGETS = ['self','target','all_active'];
-export const ACTIONS = ['damage','heal','stat_change','apply_status','remove_status','apply_effect','remove_effect','set_weather','set_field','suppress_abilities','restrict_moves'];
+export const ACTIONS = ['damage','heal','stat_change','apply_status','remove_status','apply_effect','remove_effect','set_weather','set_field','set_scenario','environment_immunity','prevent_environment','suppress_abilities','restrict_moves'];
 const TYPES = ['fuego','planta','roca','hielo','rayo','metal','guerra','mente','encanto','espectro','divinidad','luz','oscuridad','viento','dragon','agua','veneno','tecnologia','agilidad','espiritu'];
-const STATS = ['attack','defense','specialAttack','specialDefense','speed'];
+const STATS = ['attack','defense','specialAttack','specialDefense','speed','accuracy','evasion','criticalChance'];
+const ENV_CATS=['weathers','fields','scenarios'];
+const ENV_ACTIONS=['damage_percent','heal_percent','stat_change','critical_change','remove_status','block_status'];
 const slug = v => typeof v === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(v) && v.length <= 60;
 const numeric = v => typeof v === 'number' && Number.isFinite(v);
 const within = (v,a,b) => numeric(v) && v>=a && v<=b;
@@ -25,7 +27,7 @@ export function validateRules(definition,category){
   if(!EVENTS.includes(r.event)) fail(at+': elegí un evento admitido.');
   if(category==='moves' && r.event!=='manual') fail(at+': un ataque solo admite el evento «Al usar» en este laboratorio.');
   if(category==='effects' && r.event!=='manual') fail(at+': un efecto reutilizable solo admite el evento manual en este laboratorio.');
-  if(['weathers','fields','statuses','scenarios','entities'].includes(category)) fail(at+': esta categoría todavía no ejecuta reglas propias; no se permite guardar una regla que sería ignorada.');
+  if(['statuses','entities',...ENV_CATS].includes(category)) fail(at+': esta categoría todavía no ejecuta reglas propias; no se permite guardar una regla que sería ignorada.');
   condition(r.condition,at);
   if(!Array.isArray(r.conditions)) fail(at+': las condiciones adicionales deben ser una lista.');
   if(r.conditions.length>20) fail(at+': máximo 20 condiciones adicionales.');
@@ -42,9 +44,10 @@ export function validateRules(definition,category){
   const a=r.action, v=a.value;
   if(['damage','heal'].includes(a.type) && !(v!==''&&Number.isInteger(Number(v))&&Number(v)>=0&&Number(v)<=100000)) fail(at+': daño o curación requieren PS enteros entre 0 y 100000.');
   if(a.type==='stat_change' && (!STATS.includes(a.stat)||!(v!==''&&Number.isInteger(Number(v))&&Number(v)>=-10&&Number(v)<=10))) fail(at+': elegí estadística y cambio entero entre −10 y +10 niveles.');
-  if(['apply_status','apply_effect','remove_effect','set_weather','set_field'].includes(a.type)&&!slug(v)) fail(at+': la acción necesita un ID válido.');
+  if(['apply_status','apply_effect','remove_effect','set_weather','set_field','set_scenario'].includes(a.type)&&!slug(v)) fail(at+': la acción necesita un ID válido.');
+  if(['environment_immunity','prevent_environment'].includes(a.type) && !['weathers','fields','scenarios','all'].includes(v))fail(at+': inmunidad debe indicar clima, campo, escenario o todos.');
   if(a.type==='apply_effect' && category==='effects' && r.duration!==0) fail(at+': la duración de un efecto reutilizable manual no está implementada; elegí 0.');
-  if(['set_weather','set_field'].includes(a.type) && r.target==='all_active') fail(at+': el clima/campo es global, no admite «ambas entidades» como objetivo.');
+  if(['set_weather','set_field','set_scenario'].includes(a.type) && r.target==='all_active') fail(at+': el clima/campo es global, no admite «ambas entidades» como objetivo.');
   if(r.event==='manual' && category==='abilities') fail(at+': el evento manual no se ejecuta automáticamente en habilidades; usá un evento de habilidad.');
  }
 }
@@ -61,7 +64,28 @@ export function validateDefinition(category,d){
   if(!Array.isArray(d.moveIds)||d.moveIds.length!==3||new Set([...d.moveIds,d.uniqueMoveId]).size!==4||![...d.moveIds,d.uniqueMoveId,d.globalAbilityId,d.uniqueAbilityId].every(slug))fail('Entidad: tres ataques globales, uno exclusivo y dos habilidades con IDs válidos.');
   if(d.spriteId&&!slug(d.spriteId))fail('Entidad: sprite ID inválido.');
  }
- if(category==='weathers'||category==='fields'||category==='statuses')if(!Number.isInteger(d.duration)||d.duration<0||d.duration>9999)fail('Duración: entero obligatorio entre 0 y 9999.');
+ if(category==='statuses'&&!Number.isInteger(d.duration))fail('Estado: duración entera obligatoria.');
+ if(ENV_CATS.includes(category)){
+  if(d.duration!==5)fail('Climas, campos y escenarios duran exactamente 5 rondas.');
+  if(!Array.isArray(d.fieldEffects)||d.fieldEffects.length>100)fail('Efectos de entorno: se requiere una lista de hasta 100.');
+  if(Array.isArray(d.rules)&&d.rules.length)fail('Los entornos no llevan reglas de activación: usá efectos de entorno.');
+  for(const [i,e] of d.fieldEffects.entries()){
+   const at='Efecto '+(i+1);
+   if(!ENV_ACTIONS.includes(e.type))fail(at+': operación no admitida.');
+   if(!within(e.chance,0,100))fail(at+': probabilidad entre 0 y 100 %.');
+   if(!['all','include','exclude'].includes(e.filter))fail(at+': elegí filtro de tipos.');
+   if(!Array.isArray(e.types)||new Set(e.types).size!==e.types.length||e.types.some(t=>!TYPES.includes(t)))fail(at+': tipos inválidos o repetidos.');
+   if(e.filter!=='all'&&!e.types.length)fail(at+': seleccioná al menos un tipo.');
+   if(e.filter==='all'&&e.types.length)fail(at+': «Todos» no lleva selección de tipos.');
+   if(['damage_percent','heal_percent'].includes(e.type)&&!within(e.value,0,100))fail(at+': porcentaje de PS entre 0 y 100.');
+   if(e.type==='stat_change'&&(!STATS.includes(e.stat)||!Number.isInteger(e.value)||e.value< -10||e.value>10))fail(at+': estadística y niveles enteros entre −10 y +10.');
+   if(e.type==='critical_change'&&(!Number.isInteger(e.value)||e.value< -10||e.value>10))fail(at+': crítico entre −10 y +10 niveles.');
+   if(['remove_status','block_status'].includes(e.type)&&e.value!==undefined)fail(at+': esta acción no lleva valor.');
+   if(['remove_status','block_status'].includes(e.type)&&e.timing!=='round_end'&&e.timing!=='continuous')fail(at+': momento inválido.');
+   if(['damage_percent','heal_percent'].includes(e.type)&&e.timing!=='round_end')fail(at+': daño y curación se aplican al final de ronda.');
+   if(['stat_change','critical_change'].includes(e.type)&&e.timing!=='continuous')fail(at+': las estadísticas se modifican mientras esté activo.');
+  }
+ }
  if(category==='scenarios'&&d.imageId&&!slug(d.imageId))fail('Escenario: ID de imagen inválido.');
  validateRules(d,category);
 }

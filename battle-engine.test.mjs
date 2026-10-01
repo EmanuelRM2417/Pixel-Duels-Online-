@@ -3,7 +3,7 @@ import {simulate} from './battle-engine.js';
 const rule=(type,value,target='target')=>({event:'manual',condition:{type:'always'},target,action:{type,value},chance:100});
 const move=(id,type='fuego',power=80,rules=[])=>({id,name:id,definition:{type,category:'physical',power,accuracy:100,criticalChance:0,priority:0,rules}});
 const entity=(id,type='fuego',hp=100)=>({id,name:id,definition:{types:[type],hp,attack:100,defense:100,specialAttack:100,specialDefense:100,speed:100,moveIds:['a','b','c'],uniqueMoveId:'d',globalAbilityId:'none',uniqueAbilityId:'none2'}});
-const catalog={entities:{a:entity('a'),b:entity('b','agua')},moves:{a:move('a'),b:move('b'),c:move('c'),d:move('d')},abilities:{none:{id:'none',definition:{rules:[]}},none2:{id:'none2',definition:{rules:[]}}},effects:{}};
+const catalog={entities:{a:entity('a'),b:entity('b','agua')},moves:{a:move('a'),b:move('b'),c:move('c'),d:move('d')},abilities:{none:{id:'none',definition:{rules:[]}},none2:{id:'none2',definition:{rules:[]}}},effects:{},weathers:{lluvia:{id:'lluvia',name:'Lluvia',definition:{duration:5,fieldEffects:[]}}}};
 const opts={left:'a',right:'b',catalog,chart:{fuego:{agua:'inmune'}},turns:2};
 const result=simulate(opts);
 assert.equal(result.ok,true);assert.equal(result.right.hp,100,'immunity negates damage');
