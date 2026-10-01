@@ -232,6 +232,16 @@
     button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #c0b5ff;outline-offset:2px}
     @media(max-width:900px){.studio-shell{grid-template-columns:1fr}.studio-sidebar{flex-direction:row;overflow-x:auto;white-space:nowrap;padding:10px;gap:6px;border-right:0;border-bottom:1px solid #34364d}.studio-sidebar .nav-caption,.studio-sidebar .nav-footer{display:none}.studio-nav{width:auto;flex:none;padding:10px}.studio-header{padding:0 16px}.studio-pill{display:none}.studio-main{padding:22px 14px}.icon-upload-layout{grid-template-columns:1fr}}
     @media(max-width:620px){.catalog-layout{grid-template-columns:1fr}.studio-brand strong{font-size:13px}.icon-gallery{grid-template-columns:repeat(auto-fill,minmax(95px,1fr))}}
+
+    /* Laboratorio visual de batalla */
+    .battle-shell{margin-top:18px;border:1px solid #3d405c;border-radius:18px;overflow:hidden;background:#121522;box-shadow:0 18px 42px #07081255}
+    .battle-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 14px;background:#1a1d2d;border-bottom:1px solid #343750}.battle-toolbar button{width:auto;margin:0;padding:9px 12px}.battle-toolbar .spacer{flex:1}.battle-toolbar select{width:auto;margin:0;padding:8px;background:#111423;color:#fff;border:1px solid #4c506c;border-radius:8px}
+    .battle-stage{position:relative;min-height:520px;overflow:hidden;background:linear-gradient(#242942 0 58%,#373b42 58% 61%,#252a31 61%);perspective:800px}
+    .battle-stage::after{content:"";position:absolute;left:8%;right:8%;bottom:7%;height:34%;border-radius:50%;background:radial-gradient(ellipse,#3b4148 0 42%,#2d3238 43% 60%,transparent 61%);opacity:.72}
+    .battle-unit{position:absolute;z-index:2;width:min(36%,330px);transition:transform .24s ease,filter .18s ease}.battle-unit.enemy{right:8%;top:8%}.battle-unit.player{left:7%;bottom:8%}.battle-sprite-window{width:220px;height:220px;overflow:hidden;position:relative;margin:auto;filter:drop-shadow(0 14px 8px #0008)}.battle-sprite-sheet{position:absolute;top:0;width:440px;height:220px;object-fit:fill;image-rendering:pixelated}.enemy .battle-sprite-sheet{left:0}.player .battle-sprite-sheet{left:-220px}.battle-nameplate{background:#f3f0e8;color:#1a1b22;border:4px solid #30313b;border-radius:14px;padding:9px 12px;box-shadow:0 5px 0 #1117;max-width:280px;margin:auto}.battle-nameplate strong{display:flex;justify-content:space-between;gap:10px}.battle-hp-track{height:12px;border:2px solid #272832;border-radius:9px;overflow:hidden;background:#8b2f38;margin-top:6px}.battle-hp-fill{height:100%;background:#4caf65;transition:width .35s ease}.battle-hp-text{font-size:11px;text-align:right;margin-top:3px}.battle-message{position:absolute;z-index:5;left:4%;right:4%;bottom:2%;min-height:72px;background:#f6f3e9;color:#20212a;border:5px double #333743;border-radius:12px;padding:14px 18px;font-weight:700;font-size:16px;box-shadow:0 6px 0 #0c0d14aa}
+    .battle-unit.anim-physical.player{animation:physicalRight .55s ease}.battle-unit.anim-physical.enemy{animation:physicalLeft .55s ease}.battle-unit.anim-special{animation:specialPulse .55s ease}.battle-unit.anim-hit{animation:hitShake .38s ease}.battle-unit.anim-status{animation:statusOrbit .7s ease}
+    @keyframes physicalRight{0%,100%{transform:translate(0)}45%{transform:translate(46vw,-15vh) scale(1.08)}}@keyframes physicalLeft{0%,100%{transform:translate(0)}45%{transform:translate(-46vw,15vh) scale(1.08)}}@keyframes specialPulse{0%,100%{transform:translate(0)}20%{transform:translate(-7px,2px)}40%{transform:translate(7px,-2px)}60%{transform:translate(-5px,-2px)}80%{transform:translate(5px,2px)}}@keyframes hitShake{0%,100%{transform:translateX(0);filter:brightness(1)}25%{transform:translateX(-9px);filter:brightness(1.8)}50%{transform:translateX(9px)}75%{transform:translateX(-5px)}}@keyframes statusOrbit{0%,100%{transform:translate(0,0)}25%{transform:translate(8px,-6px)}50%{transform:translate(0,-12px)}75%{transform:translate(-8px,-6px)}}
+    .battle-modal{position:fixed;z-index:100;inset:0;background:#070812bb;display:grid;place-items:center;padding:24px}.battle-modal[hidden]{display:none}.battle-modal-card{width:min(760px,96vw);max-height:82vh;overflow:auto;background:#202337;border:1px solid #555a79;border-radius:16px;padding:20px;box-shadow:0 24px 70px #000b}.battle-modal-card header{display:flex;align-items:center;gap:12px}.battle-modal-card header h3{margin:0;flex:1}.battle-modal-card button{width:auto;margin:0}.battle-log-round{border-left:3px solid #8f82ff;padding:8px 12px;margin:12px 0;background:#171a29}.effect-chip{display:inline-block;padding:5px 8px;border:1px solid #555a78;border-radius:999px;margin:3px;font-size:12px;background:#171a29}.battle-empty{display:grid;place-items:center;height:100%;color:#999db8}.battle-actions{position:absolute;z-index:6;right:3%;bottom:2%;width:min(390px,48%);background:#171a29dd;border:1px solid #555a78;border-radius:12px;padding:10px}.battle-actions select,.battle-actions button{margin:4px 0}
   </style>
 </head>
 
@@ -425,35 +435,27 @@
   </section>
 
   <section class="panel" data-studio-view="sim" aria-labelledby="simHeading">
-    <h2 id="simHeading">Laboratorio de batalla · Singles por equipos</h2>
-    <p class="help">Prueba privada con hasta ocho entidades por equipo, relevos y órdenes por ronda. No modifica el juego público ni concede recompensas.</p>
-    <div class="builder-grid">
-      <label>Entidad izquierda <select id="simLeft"></select></label>
-      <label>Entidad derecha <select id="simRight"></select></label>
-      <label>Ataque izquierda <select id="simLeftMove"><option value="">Automático</option></select></label>
-      <label>Ataque derecha <select id="simRightMove"><option value="">Automático</option></select></label>
-      <label>Rondas máximas <input id="simTurns" type="number" min="1" max="50" value="10"></label>
-      <label>Control izquierdo <select id="simModeLeft"><option value="auto">Automático (RNG)</option><option value="manual">Manual, elegir cada ronda</option></select></label>
-      <label>Control derecho <select id="simModeRight"><option value="auto">Automático (RNG)</option><option value="manual">Manual, elegir cada ronda</option></select></label>
-      <label>Clima inicial <select id="simWeather"><option value="">Ninguno</option></select></label>
-      <label>Campo inicial <select id="simField"><option value="">Ninguno</option></select></label>
-    </div>
-    <details class="builder-note" open><summary><strong>Equipos</strong> (opcional)</summary>
-      <p>Los equipos se escriben con IDs separados por comas, en el orden de entrada. Si dejás un equipo vacío, se usa la entidad elegida arriba. Máximo ocho entidades diferentes por lado. Al caer una entidad entra automáticamente la siguiente disponible.</p>
+    <h2 id="simHeading">Laboratorio de batalla · Vista visual</h2>
+    <p class="help">Batalla privada por equipos. El motor resuelve el RNG; en control manual vos elegís únicamente el movimiento de cada ronda.</p>
+    <details class="builder-note" open><summary><strong>Preparar batalla</strong></summary>
       <div class="builder-grid">
-        <label>Equipo izquierdo (IDs separados por comas)<textarea id="simLeftTeam" rows="2" placeholder="ejemplo: entidad-uno, entidad-dos"></textarea></label>
-        <label>Equipo derecho (IDs separados por comas)<textarea id="simRightTeam" rows="2" placeholder="ejemplo: rival-uno, rival-dos"></textarea></label>
+        <label>Entidad J1 <select id="simLeft"></select></label><label>Entidad J2 <select id="simRight"></select></label>
+        <label>Control J1 <select id="simModeLeft"><option value="auto">Automático (RNG)</option><option value="manual">Manual</option></select></label><label>Control J2 <select id="simModeRight"><option value="auto">Automático (RNG)</option><option value="manual">Manual</option></select></label>
+        <label>Rondas máximas <input id="simTurns" type="number" min="1" max="50" value="10"></label>
+        <label>Clima inicial <select id="simWeather"><option value="">Ninguno</option></select></label><label>Campo inicial <select id="simField"><option value="">Ninguno</option></select></label><label>Escenario inicial <select id="simScenario"><option value="">Ninguno</option></select></label>
+        <label>Equipo J1 (IDs, opcional)<textarea id="simLeftTeam" rows="2"></textarea></label><label>Equipo J2 (IDs, opcional)<textarea id="simRightTeam" rows="2"></textarea></label>
       </div>
-      <p>Las órdenes de ataques se eligen durante la batalla cuando activás el control manual. El relevo por KO es automático; los cambios voluntarios por ronda todavía no están disponibles en esta interfaz.</p>
+      <div class="builder-grid"><label>Movimiento inicial J1 <select id="simLeftMove"><option value="">Elegir al iniciar…</option></select></label><label>Movimiento inicial J2 <select id="simRightMove"><option value="">Elegir al iniciar…</option></select></label></div>
+      <button type="button" id="simRun">Iniciar nueva batalla</button><button type="button" id="simNext" hidden>Resolver ronda</button>
     </details>
-    <button type="button" id="simRun">Iniciar nueva batalla</button>
-    <button type="button" id="simNext" hidden>Resolver esta ronda</button>
-    <p class="help">En automático, el motor selecciona ataques con RNG durante el combate. En manual, elegís un ataque para cada ronda del lado correspondiente; los aciertos, críticos, efectos y desempates siguen siendo aleatorios. No existe semilla configurable. Elegir un ataque arriba solo tiene efecto en modo manual.</p>
-    <p id="simStatus" role="status">Elegí dos entidades completas para comenzar.</p>
-    <div id="simVisual" class="builder-grid" aria-live="polite"></div>
-    <pre id="simLog" style="white-space:pre-wrap;max-height:420px;overflow:auto" aria-label="Registro de combate"></pre>
-    <p class="help">Alcance: Singles por equipos de hasta ocho. El modo manual avanza ronda por ronda, y el automático resuelve la batalla completa. No incluye Doubles ni todas las interacciones avanzadas. Las decisiones aleatorias se generan en el servidor al necesitarse; el historial interno mantiene los resultados de las rondas ya resueltas.</p>
+    <p id="simStatus" role="status">Elegí los combatientes para comenzar.</p>
+    <div class="battle-shell" id="battleShell">
+      <div class="battle-toolbar"><strong>Vista:</strong><select id="battlePerspective"><option value="left">Jugador 1</option><option value="right">Jugador 2</option></select><span class="spacer"></span><button type="button" data-battle-modal="player">Efectos jugador</button><button type="button" data-battle-modal="enemy">Efectos rival</button><button type="button" data-battle-modal="environment">Campo · Clima · Escenario</button><button type="button" data-battle-modal="log">Battle log</button></div>
+      <div class="battle-stage" id="battleStage"><div class="battle-empty">Iniciá una batalla para verla aquí.</div></div>
+    </div>
+    <div id="simVisual" hidden></div><pre id="simLog" hidden></pre>
   </section>
+  <div class="battle-modal" id="battleModal" hidden><div class="battle-modal-card"><header><h3 id="battleModalTitle">Detalles</h3><button type="button" id="battleModalClose">Cerrar</button></header><div id="battleModalBody"></div></div></div>
 
   <section class="panel icon-panel" data-studio-view="type-icons" aria-labelledby="typeIconHeading" hidden>
     <h2 id="typeIconHeading">Biblioteca de sprites de tipos</h2>
@@ -1044,7 +1046,7 @@ const response = await fetch(
       for (const control of document.querySelectorAll('[data-ref-category]')) fillReference(control,control.dataset.refCategory,control.value);
       const datalist=document.getElementById('moveReferences');datalist.replaceChildren();
       for(const entry of cachedCatalog.moves||[]) {const option=document.createElement('option');option.value=entry.id;option.label=entry.name;datalist.append(option);}
-      for (const [id,cat] of [['simLeft','entities'],['simRight','entities'],['simWeather','weathers'],['simField','fields']]) {
+      for (const [id,cat] of [['simLeft','entities'],['simRight','entities'],['simWeather','weathers'],['simField','fields'],['simScenario','scenarios']]) {
         const control=document.getElementById(id);if(!control)continue;
         fillReference(control,cat,control.value,cat==='weathers'||cat==='fields');
       }
@@ -1319,17 +1321,30 @@ const response = await fetch(
     function simTeam(id){return document.getElementById(id).value.trim().split(',').map(x=>x.trim()).filter(Boolean);}
     function simMode(side){return document.getElementById('simMode'+side).value;}
     function simSelect(side){return document.getElementById('sim'+side+'Move');}
-    function simShow(data){
-      const status=document.getElementById('simStatus'),log=document.getElementById('simLog');
-      status.textContent=`Ronda ${data.rounds} · ${data.left.name}: ${data.left.hp}/${data.left.maxHp} PS · ${data.right.name}: ${data.right.hp}/${data.right.maxHp} PS · ${data.winner?'Ganador: '+(data.winner==='left'?'izquierda':'derecha'):'Sin ganador aún'}`;
-      log.textContent=data.log.join('\n');
-      const visual=document.getElementById('simVisual');visual.replaceChildren();
-      for(const [side,team] of [['Izquierda',data.leftTeam],['Derecha',data.rightTeam]]){
-        const panel=document.createElement('div');panel.className='builder-note';
-        const title=document.createElement('strong');title.textContent=side+' · '+team.filter(x=>x.hp>0).length+'/'+team.length+' disponibles';panel.append(title);
-        for(const unit of team){const line=document.createElement('p');line.style.margin='8px 0';line.textContent=unit.name+' · '+unit.hp+'/'+unit.maxHp+' PS';const bar=document.createElement('progress');bar.max=unit.maxHp;bar.value=unit.hp;bar.style.width='100%';line.append(document.createElement('br'),bar);panel.append(line);}
-        visual.append(panel);
-      }
+    let battleLastData=null,battleLastLogLength=0,battleAnimating=false;
+    const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+    function battleEntityEntry(id){return (cachedCatalog.entities||[]).find(e=>e.id===id);}
+    function spriteUrl(unit){const e=battleEntityEntry(unit?.id);return e?.definition?.spriteId?'/editor-api/sprites/'+encodeURIComponent(e.definition.spriteId):'';}
+    function battleUnitHTML(unit,role){const url=spriteUrl(unit),pct=unit?.maxHp?Math.max(0,unit.hp/unit.maxHp*100):0;return `<div class="battle-unit ${role}" data-role="${role}"><div class="battle-nameplate"><strong><span>${escapeHtml(unit?.name||'—')}</span><span>${(unit?.types||[]).map(escapeHtml).join(' / ')}</span></strong><div class="battle-hp-track"><div class="battle-hp-fill" style="width:${pct}%"></div></div><div class="battle-hp-text">${unit?.hp??0} / ${unit?.maxHp??0} PS</div></div><div class="battle-sprite-window">${url?`<img class="battle-sprite-sheet" src="${url}" alt="Sprite de ${escapeHtml(unit.name)}">`:'<div class="battle-empty">Sin sprite</div>'}</div></div>`;}
+    function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    function perspectiveUnits(data){const left=document.getElementById('battlePerspective').value==='left';return {player:left?data.left:data.right,enemy:left?data.right:data.left,playerSide:left?'left':'right'};}
+    function renderBattle(data,message=''){battleLastData=data;const stage=document.getElementById('battleStage'),p=perspectiveUnits(data);stage.innerHTML=battleUnitHTML(p.enemy,'enemy')+battleUnitHTML(p.player,'player')+`<div class="battle-message" id="battleMessage">${escapeHtml(message||('Ronda '+data.rounds))}</div>`+manualControlsHTML(data,p.playerSide);wireManualControl();}
+    function manualControlsHTML(data,playerSide){const side=playerSide==='left'?'Left':'Right';if(!simSession||simSession['mode'+side]!=='manual'||data.winner)return '';const unit=playerSide==='left'?data.left:data.right,entry=battleEntityEntry(unit.id),ids=[...(entry?.definition?.moveIds||[]),entry?.definition?.uniqueMoveId].filter(Boolean);return `<div class="battle-actions"><strong>Elegí movimiento</strong><select id="battleMoveVisual"><option value="">Seleccionar…</option>${ids.map(id=>{const m=(cachedCatalog.moves||[]).find(x=>x.id===id);return `<option value="${escapeHtml(id)}">${escapeHtml(m?.name||id)}</option>`}).join('')}</select><button id="battleResolveVisual" type="button">Confirmar movimiento</button></div>`;}
+    function wireManualControl(){const b=document.getElementById('battleResolveVisual');if(!b)return;b.onclick=()=>{const p=perspectiveUnits(battleLastData),side=p.playerSide==='left'?'Left':'Right',v=document.getElementById('battleMoveVisual').value;if(!v)return;simSelect(side).value=v;if(simMode(side==='Left'?'Right':'Left')==='manual'&&!simSelect(side==='Left'?'Right':'Left').value){document.getElementById('simStatus').textContent='Cambiá la perspectiva y elegí el movimiento del otro jugador.';return;}simAdvance(false);};}
+    function findMoveByName(name){return (cachedCatalog.moves||[]).find(m=>m.name===name);}
+    async function animateLogLines(lines,data){battleAnimating=true;simNext.disabled=true;for(const line of lines){const msg=document.getElementById('battleMessage');if(msg)msg.textContent=line;const use=line.match(/^(.+?) usa (.+?)(?::|\.$)/);if(use){const actor=use[1],move=findMoveByName(use[2]),p=perspectiveUnits(data),role=actor===p.player.name?'player':'enemy',other=role==='player'?'enemy':'player',el=document.querySelector('.battle-unit.'+role),target=document.querySelector('.battle-unit.'+other);const cat=move?.definition?.category||'status';el?.classList.add(cat==='physical'?'anim-physical':cat==='special'?'anim-special':'anim-status');await sleep(560);el?.classList.remove('anim-physical','anim-special','anim-status');if(cat==='special'){target?.classList.add('anim-hit');await sleep(380);target?.classList.remove('anim-hit');}}else if(/daño|falla|crítico|estado|recupera|pierde/.test(line)){await sleep(420);}else await sleep(260);}battleAnimating=false;simNext.disabled=false;renderBattle(data,lines.at(-1)||'');}
+    function effectRows(unit){const names={attack:'Ataque',specialAttack:'Ataque especial',defense:'Defensa',specialDefense:'Defensa especial',speed:'Velocidad',accuracy:'Precisión',evasion:'Evasión',criticalChance:'Probabilidad de crítico'};let a=[];if(unit?.status)a.push(`<span class="effect-chip">Estado: ${escapeHtml(unit.status.id)}${unit.status.turns?' · '+unit.status.turns+' r.':''}</span>`);for(const [k,v] of Object.entries(unit?.stages||{}))if(v)a.push(`<span class="effect-chip">${names[k]||k}: ${v>0?'+':''}${v}</span>`);for(const [k,v] of Object.entries(unit?.environmentStages||{}))if(v)a.push(`<span class="effect-chip">${names[k]||k} (entorno): ${v>0?'+':''}${v}</span>`);if(unit?.environmentCrit)a.push(`<span class="effect-chip">Crítico (entorno): ${unit.environmentCrit>0?'+':''}${unit.environmentCrit} pp</span>`);for(const e of unit?.effects||[])a.push(`<span class="effect-chip">${escapeHtml(e.id)}${e.turns?' · '+e.turns+' r.':''}</span>`);return a.join('')||'<p>No tiene efectos aplicados.</p>';}
+    function envBody(){if(!battleLastData)return '<p>Sin batalla.</p>';const kinds=[['Clima','weather','weathers'],['Campo','field','fields'],['Escenario','scenario','scenarios']];return kinds.map(([label,key,cat])=>{const id=battleLastData[key],e=(cachedCatalog[cat]||[]).find(x=>x.id===id);if(!id)return `<h4>${label}</h4><p>Ninguno activo.</p>`;const fx=(e?.definition?.fieldEffects||[]).map(x=>`<span class="effect-chip">${escapeHtml(x.type)}${x.value!==undefined?' · '+escapeHtml(x.value):''}${x.stat?' · '+escapeHtml(x.stat):''}</span>`).join('');return `<h4>${label}: ${escapeHtml(e?.name||id)}</h4>${fx||'<p>Sin efectos configurados.</p>'}`;}).join('');}
+    function logBody(){const lines=battleLastData?.log||[];let out='',open=false;for(const l of lines){if(l.startsWith('— Ronda ')){if(open)out+='</div>';out+=`<div class="battle-log-round"><strong>${escapeHtml(l)}</strong>`;open=true}else out+=`<div>${escapeHtml(l)}</div>`;}return out+(open?'</div>':'');}
+    function openBattleModal(kind){if(!battleLastData)return;const p=perspectiveUnits(battleLastData),title=document.getElementById('battleModalTitle'),body=document.getElementById('battleModalBody');if(kind==='player'){title.textContent='Efectos · '+p.player.name;body.innerHTML=effectRows(p.player)}else if(kind==='enemy'){title.textContent='Efectos · '+p.enemy.name;body.innerHTML=effectRows(p.enemy)}else if(kind==='environment'){title.textContent='Efectos del entorno';body.innerHTML=envBody()}else{title.textContent='Battle log';body.innerHTML=logBody()}document.getElementById('battleModal').hidden=false;}
+    document.querySelectorAll('[data-battle-modal]').forEach(b=>b.addEventListener('click',()=>openBattleModal(b.dataset.battleModal)));document.getElementById('battleModalClose').onclick=()=>document.getElementById('battleModal').hidden=true;document.getElementById('battleModal').addEventListener('click',e=>{if(e.target.id==='battleModal')e.currentTarget.hidden=true;});document.getElementById('battlePerspective').addEventListener('change',()=>{if(battleLastData)renderBattle(battleLastData,'Perspectiva cambiada.');});
+    async function simShow(data){
+      const status=document.getElementById('simStatus');
+      status.textContent=`Ronda ${data.rounds} · ${data.left.name}: ${data.left.hp}/${data.left.maxHp} PS · ${data.right.name}: ${data.right.hp}/${data.right.maxHp} PS${data.winner?' · Ganador: '+(data.winner==='left'?'J1':'J2'):''}`;
+      document.getElementById('simLog').textContent=data.log.join('\n');
+      const fresh=data.log.slice(battleLastLogLength);battleLastLogLength=data.log.length;
+      renderBattle(data,fresh[0]||'Comienza la batalla.');
+      await animateLogLines(fresh,data);
     }
     async function simAdvance(full=false){
       if(!simSession)return;
@@ -1350,10 +1365,10 @@ const response = await fetch(
           left:s.left,right:s.right,leftTeam:s.leftTeam,rightTeam:s.rightTeam,
           leftOrders:s.leftOrders,rightOrders:s.rightOrders,
           turns:full?s.maxRounds:round,randomTape:s.randomTape,
-          weather:s.weather,field:s.field
+          weather:s.weather,field:s.field,scenario:s.scenario
         })});
         const data=await response.json();if(!response.ok)throw Error(data.error||'Error de simulación');
-        s.randomTape=data.randomTape;s.round=data.rounds;simShow(data);
+        s.randomTape=data.randomTape;s.round=data.rounds;await simShow(data);
         const ended=!!data.winner||s.round>=s.maxRounds;
         simNext.hidden=ended||full;
         if(!ended&&!full){
@@ -1377,10 +1392,10 @@ const response = await fetch(
       simSession={left:document.getElementById('simLeft').value,right:document.getElementById('simRight').value,
         leftTeam:simTeam('simLeftTeam').length?simTeam('simLeftTeam'):undefined,
         rightTeam:simTeam('simRightTeam').length?simTeam('simRightTeam'):undefined,
-        weather:document.getElementById('simWeather').value,field:document.getElementById('simField').value,
+        weather:document.getElementById('simWeather').value,field:document.getElementById('simField').value,scenario:document.getElementById('simScenario').value,
         maxRounds:Number(document.getElementById('simTurns').value),modeLeft,modeRight,
         leftOrders:[],rightOrders:[],randomTape:[],round:0};
-      document.getElementById('simLog').textContent='';document.getElementById('simVisual').replaceChildren();
+      battleLastLogLength=0;battleLastData=null;document.getElementById('simLog').textContent='';document.getElementById('simVisual').replaceChildren();
       if(modeLeft==='auto'&&modeRight==='auto'){
         status.textContent='Resolviendo batalla automática con RNG…';
         simNext.hidden=true;await simAdvance(true);
