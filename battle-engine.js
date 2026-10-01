@@ -1,4 +1,4 @@
-// Motor determinista de PRUEBAS privadas. No utiliza código ejecutable de contenido.
+// Motor privado con RNG criptográfico y reproducción interna de rondas para controles manuales.
 export const STATS = ['hp','attack','defense','specialAttack','specialDefense','speed'];
 const clamp = (n, min, max) => Math.max(min, Math.min(max, Number(n) || 0));
 const integer = n => Math.round(Number(n) || 0);
@@ -122,10 +122,13 @@ function hit(attacker, defender, move, state) {
 function tick(actor) { for (const e of actor.effects) if (e.turns > 0) e.turns--; actor.effects = actor.effects.filter(e=>e.permanent || e.turns !== 0); if (actor.status?.turns > 0 && --actor.status.turns === 0) actor.status = null; }
 // Laboratorio de equipos: hasta ocho entidades por lado, una activa (Singles).
 // Las órdenes son datos declarativos, nunca código del usuario.
-export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,seed=12345,weather='',field='',leftMove='',rightMove='',leftOrders=[],rightOrders=[]}) {
+export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,randomTape=[],randomSource,weather='',field='',leftMove='',rightMove='',leftOrders=[],rightOrders=[]}) {
   if (!Number.isInteger(turns) || turns < 1 || turns > 50) throw Error('Rondas entre 1 y 50.');
-  let n=Number(seed)>>>0;
-  const random=()=>{n=(Math.imul(1664525,n)+1013904223)>>>0;return n/4294967296;};
+  if (!Array.isArray(randomTape) || randomTape.length > 30000 || randomTape.some(v=>typeof v!=='number'||!Number.isFinite(v)||v<0||v>=1)) throw Error('Historial RNG inválido.');
+  const tape=randomTape.slice();
+  let cursor=0;
+  const fresh=typeof randomSource==='function'?randomSource:()=>crypto.getRandomValues(new Uint32Array(1))[0]/4294967296;
+  const random=()=>{if(cursor<tape.length)return tape[cursor++];const v=fresh();if(!Number.isFinite(v)||v<0||v>=1)throw Error('RNG inválido.');tape.push(v);cursor++;return v;};
   const state={chart,catalog,weather:'',field:'',scenario:'',weatherTurns:0,fieldTurns:0,scenarioTurns:0,random,log:[],timeline:[]};
   const load=id=>{
     const e=catalog.entities[id];if(!e)throw Error('Entidad no encontrada: '+id);
@@ -165,9 +168,13 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,s
     if(order.move!==undefined&&typeof order.move!=='string')throw Error('ID de ataque inválido en ronda '+round+'.');
     return {move:order.move||defaultMove};
   };
-  const chooseMove=(a,requested)=>{
+  const chooseMove=(a,opponent,requested)=>{
     if(requested){const m=a.moves.find(m=>m.id===requested);if(!m)throw Error('El ataque '+requested+' no pertenece a '+a.name+'.');return m;}
-    return a.moves.find(m=>m.definition.category!=='status')||a.moves[0];
+    // Selección aleatoria entre ataques utilizables. Nunca priorizar un ataque
+    // ofensivo completamente inmune cuando existe una alternativa útil.
+    const useful=a.moves.filter(m=>m.definition.category==='status'||Number(m.definition.power)<=0||!opponent.types.some(t=>state.chart?.[m.definition.type]?.[t]==='inmune'));
+    const pool=useful.length?useful:a.moves;
+    return pool[Math.floor(random()*pool.length)];
   };
   enter(0);enter(1);
   // Los entornos de prueba solo se activan si existe su definición en el catálogo.
@@ -218,7 +225,7 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,s
     for(const i of switches){const dest=orders[i].switch;if(!Number.isInteger(dest))throw Error('El índice de cambio debe ser entero (0 a 7).');switchTo(i,dest);}
     refreshEnvironment();
     for(const i of [0,1])if(current(i).hp>0)rulesFor(null,'turn_start',current(i),current(1-i),state);
-    const attacks=[0,1].filter(i=>orders[i].switch===undefined&&current(i).hp>0).map(i=>({side:i,actor:current(i),move:chooseMove(current(i),orders[i].move)}));
+    const attacks=[0,1].filter(i=>orders[i].switch===undefined&&current(i).hp>0).map(i=>({side:i,actor:current(i),move:chooseMove(current(i),current(1-i),orders[i].move)}));
     attacks.sort((x,y)=>{
       const px=Number(x.move.definition.priority)||0,py=Number(y.move.definition.priority)||0;
       if(px!==py)return py-px;
@@ -245,5 +252,5 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,s
   }
   const leftAlive=remaining(0),rightAlive=remaining(1);
   const winner=leftAlive&&!rightAlive?'left':rightAlive&&!leftAlive?'right':null;
-  return {ok:true,mode:'private-singles-team-simulation',rounds:played,winner,winnerId:winner==='left'?current(0).id:winner==='right'?current(1).id:null,left:summary(current(0)),right:summary(current(1)),leftTeam:teams[0].map(summary),rightTeam:teams[1].map(summary),weather:state.weather,field:state.field,scenario:state.scenario,log:state.log.slice(0,1500),timeline:state.timeline};
+  return {ok:true,mode:'private-singles-team-simulation',rounds:played,winner,winnerId:winner==='left'?current(0).id:winner==='right'?current(1).id:null,left:summary(current(0)),right:summary(current(1)),leftTeam:teams[0].map(summary),rightTeam:teams[1].map(summary),weather:state.weather,field:state.field,scenario:state.scenario,log:state.log.slice(0,1500),timeline:state.timeline,randomTape:tape.slice(0,cursor)};
 }

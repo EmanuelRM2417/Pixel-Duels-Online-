@@ -323,10 +323,10 @@ if (
       }
 
       // Simulación de combate exclusivamente privada y sin escrituras.
-      if (url.pathname === "/editor-api/simulate" && request.method === "POST") {
+      if ((url.pathname === "/editor-api/simulate" || url.pathname === "/editor-api/simulate-step") && request.method === "POST") {
         if (request.headers.get("Origin") !== url.origin) return privateJson({error:"Origen no autorizado."},403);
         let input;
-        try { const raw=await request.text(); if(raw.length>20000) return privateJson({error:"Solicitud demasiado grande."},413); input=JSON.parse(raw); }
+        try { const raw=await request.text(); if(raw.length>400000) return privateJson({error:"Solicitud demasiado grande."},413); input=JSON.parse(raw); }
         catch { return privateJson({error:"Solicitud inválida."},400); }
         const idPattern=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
         if (!idPattern.test(input?.left||"") || !idPattern.test(input?.right||"")) return privateJson({error:"Elegí dos entidades válidas."},400);
@@ -365,7 +365,7 @@ if (
             if(envCategory&&rule.action.value){const key=envCategory+':'+rule.action.value;if(!seen.has(key)){seen.add(key);await get(envCategory,rule.action.value);}}
           }
           const chart=await env.EDITOR_DRAFTS.get("type-chart-draft","json");
-          return privateJson(simulate({left:input.left,right:input.right,catalog,chart:chart?.chart||chart,turns:Math.min(50,Math.max(1,Number(input.turns)||10)),seed:Number(input.seed)||12345,weather:input.weather||"",field:input.field||"",leftMove:input.leftMove||"",rightMove:input.rightMove||"",leftTeam:input.leftTeam,rightTeam:input.rightTeam,leftOrders:input.leftOrders,rightOrders:input.rightOrders}));
+          return privateJson(simulate({left:input.left,right:input.right,catalog,chart:chart?.chart||chart,turns:Math.min(50,Math.max(1,Number(input.turns)||10)),randomTape:input.randomTape||[],weather:input.weather||"",field:input.field||"",leftMove:input.leftMove||"",rightMove:input.rightMove||"",leftTeam:input.leftTeam,rightTeam:input.rightTeam,leftOrders:input.leftOrders,rightOrders:input.rightOrders}));
         } catch(e) { return privateJson({error:String(e.message||e)},400); }
       }
 

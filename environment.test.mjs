@@ -8,7 +8,7 @@ const env=(id,fieldEffects)=>({id,name:id,definition:{duration:5,rules:[],fieldE
 const fx=(type,filter,types,value,extra={})=>({type,filter,types,value,chance:100,timing:type==='damage_percent'||type==='heal_percent'?'round_end':'continuous',...extra});
 const catalog={entities:{a:e('a','espectro'),b:e('b','agua')},moves:{a:m('a',[rule('set_scenario','inframundo')]),b:m('b'),c:m('c'),d:m('d')},abilities:{g:{definition:{rules:[]}},u:{definition:{rules:[]}}},effects:{},weathers:{},fields:{},scenarios:{inframundo:env('inframundo',[fx('damage_percent','exclude',['espectro','fuego'],5),fx('heal_percent','include',['espectro','fuego'],5)])}};
 validateDefinition('scenarios',catalog.scenarios.inframundo.definition);
-const result=simulate({left:'a',right:'b',catalog,turns:3});
+const result=simulate({left:'a',right:'b',catalog,turns:3,leftMove:'a',rightMove:'b'});
 assert.ok(result.log.some(x=>x.includes('Se activa scenario')),'escenario activado por movimiento');
 assert.equal(result.right.hp,85,'5 % daño a agua durante tres rondas');
 assert.equal(result.left.hp,100,'espectro excluido del daño y curado hasta PS máximos');
@@ -31,6 +31,6 @@ withStatus.moves.a=m('a',[rule('set_field','purificador')]);withStatus.moves.b=m
 const blocked=simulate({left:'a',right:'b',catalog:withStatus,turns:2,leftOrders:['a','b'],rightOrders:['b','b']});
 assert.equal(blocked.left.status,null,'campo bloquea estado en activo');
 const prevent=structuredClone(catalog);prevent.abilities.g={definition:{rules:[{...rule('prevent_environment','scenarios'),event:'on_enter',target:'self'}]}};
-const stopped=simulate({left:'a',right:'b',catalog:prevent,turns:2});
+const stopped=simulate({left:'a',right:'b',catalog:prevent,turns:2,leftMove:'a',rightMove:'b'});
 assert.equal(stopped.scenario,'','una habilidad puede impedir activar escenarios');
 console.log('PASS: escenario activado por movimiento, duración 5, filtros por tipo, daño/curación %, estadística sin PS, bloqueo de estados');
