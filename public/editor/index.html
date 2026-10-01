@@ -196,6 +196,7 @@
     .catalog-panel label { display: block; margin: 12px 0 6px; color: #d9d6f3; }
     .catalog-panel select, .catalog-panel input, .catalog-panel textarea { width: 100%; background: #15151f; color: white; border: 1px solid #55556b; border-radius: 6px; padding: 10px; font-family: inherit; }
     .catalog-panel textarea { min-height: 95px; }
+    .environment-intro{padding:12px 16px;border:1px solid var(--line,#445);border-radius:12px;line-height:1.5} .environment-row{margin:12px 0;padding:14px;border:1px solid var(--line,#445);border-radius:12px} .environment-types{display:flex;flex-wrap:wrap;gap:8px;padding:12px;border:1px solid #58657c;border-radius:10px} .environment-types label{white-space:nowrap;display:inline-flex;align-items:center;gap:4px} .environment-types legend{padding:0 8px} .environment-row small{display:block;opacity:.75;font-size:12px;margin-top:5px}
     .catalog-panel #catalogDefinition { font-family: monospace; min-height: 220px; font-size: 13px; }
     .catalog-list { display: grid; gap: 6px; max-height: 470px; overflow-y: auto; }
     .catalog-list button { margin: 0; text-align: left; overflow-wrap: anywhere; background: #343449; }
@@ -405,7 +406,7 @@
           <h3>Configuración visual</h3>
           <p class="builder-note">Cada casilla se elige individualmente. No se completan automáticamente los valores de las reglas. <strong>Solo aparecen operaciones interpretadas por el laboratorio actual.</strong> Los climas, campos y estados aún no ejecutan reglas propias. Consultá la guía de cada casilla debajo.</p><details open><summary>¿Qué significa cada casilla?</summary><div id="mechanicHelp" class="builder-note"></div></details>
           <div id="builderBasics"></div>
-          <div id="builderRules"></div>
+          <div id="environmentEditor" hidden><p class="environment-intro">El entorno se activa mediante un ataque o habilidad, dura 5 rondas y afecta a las entidades activas. Agregá únicamente los efectos que querás. Los modificadores de estadísticas se mantienen sin acumularse por ronda.</p><div id="environmentEffects"></div><button type="button" id="environmentAdd">+ Añadir efecto al entorno</button></div><div id="builderRules"></div>
           <button type="button" id="builderAddRule">+ Agregar regla</button>
         </div>
         <button type="button" id="advancedToggle" aria-expanded="false">Mostrar JSON avanzado</button>
@@ -992,17 +993,17 @@ const response = await fetch(
       }
     });
     const typeOptions = [["","Elegir tipo…"],...chartTypes.map(([id,label]) => [id,label])];
-    const statOptions = [["hp","PS"],["attack","Ataque"],["defense","Defensa"],["specialAttack","Ataque especial"],["specialDefense","Defensa especial"],["speed","Velocidad"]];
+    const statOptions = [["attack","Ataque"],["defense","Defensa"],["specialAttack","Ataque especial"],["specialDefense","Defensa especial"],["speed","Velocidad"],["accuracy","Precisión"],["evasion","Evasión"],["criticalChance","Probabilidad de crítico"]];
     const eventOptions = [["","Elegir evento…"],["on_enter","Al entrar al campo"],["turn_start","Inicio de turno"],["turn_end","Final de turno"],["round_end","Final de ronda"],["on_attack","Al atacar"],["on_hit","Al acertar"],["on_damage_taken","Al recibir daño"],["manual","Al usar el ataque / efecto manual"]];
     const conditionOptions = [["","Elegir condición…"],["always","Siempre"],["hp_below","PS por debajo de (%)"],["hp_above","PS por encima de (%)"],["weather_is","Clima activo (ID)"],["field_is","Campo activo (ID)"],["has_status","Tiene estado (ID)"],["has_type","Tiene tipo (ID)"],["was_hit_by_type","Recibió tipo (ID)"],["stat_below","Velocidad actual por debajo de"]];
     const targetOptions = [["","Elegir objetivo…"],["self","Usuario"],["target","Rival / objetivo"],["all_active","Ambas entidades activas"]];
-    const actionOptions = [["","Elegir acción…"],["damage","Causar daño fijo (PS)"],["heal","Recuperar PS fijos"],["stat_change","Modificar niveles de estadística"],["apply_status","Aplicar estado (ID)"],["remove_status","Eliminar estado"],["apply_effect","Ejecutar efecto reutilizable (ID)"],["remove_effect","Eliminar efecto temporal (ID)"],["set_weather","Cambiar clima (ID)"],["set_field","Cambiar campo (ID)"],["suppress_abilities","Anular habilidades"],["restrict_moves","Restringir movimientos"]];
+    const actionOptions = [["","Elegir acción…"],["damage","Causar daño fijo (PS)"],["heal","Recuperar PS fijos"],["stat_change","Modificar niveles de estadística"],["apply_status","Aplicar estado (ID)"],["remove_status","Eliminar estado"],["apply_effect","Ejecutar efecto reutilizable (ID)"],["remove_effect","Eliminar efecto temporal (ID)"],["set_weather","Cambiar clima (ID)"],["set_field","Cambiar campo (ID)"],["set_scenario","Cambiar escenario (ID)"],["environment_immunity","Inmunidad a entorno (weathers / fields / scenarios / all)"],["prevent_environment","Impedir activar entorno (weathers / fields / scenarios / all)"],["suppress_abilities","Anular habilidades"],["restrict_moves","Restringir movimientos"]];
     const categoryBasics = {
       entities: [["spriteId","ID del sprite","text"],["types","Tipos (hasta 3)","types"],["hp","PS base","number"],["attack","Ataque base","number"],["defense","Defensa base","number"],["specialAttack","Ataque especial base","number"],["specialDefense","Defensa especial base","number"],["speed","Velocidad base","number"],["globalAbilityId","ID habilidad global","text"],["uniqueAbilityId","ID habilidad exclusiva","text"],["moveIds","IDs de 3 ataques globales","ids"],["uniqueMoveId","ID ataque exclusivo","text"]],
       moves: [["kind","Clase del ataque","abilityKind"],["type","Tipo del ataque","type"],["category","Categoría","category"],["power","Potencia","number"],["accuracy","Precisión (%)","number"],["criticalChance","Probabilidad crítico (%)","number"],["priority","Prioridad","number"]],
       abilities: [["kind","Clase de habilidad","abilityKind"]],
-      effects: [], weathers: [["duration","Duración (rondas, 0 = indefinida)","number"]],
-      fields: [["duration","Duración (rondas, 0 = indefinida)","number"]],
+      effects: [], weathers: [],
+      fields: [],
       scenarios: [["imageId","ID de imagen / recurso","text"]],
       statuses: [["duration","Duración predeterminada (rondas)","number"]]
     };
@@ -1015,8 +1016,8 @@ const response = await fetch(
     function showMechanicHelp(){
       const el=document.getElementById('mechanicHelp'); if(!el)return;
       el.replaceChildren();
-      const intro=document.createElement('p');intro.textContent='Una regla = un evento + una condición + un objetivo + una acción. Agregá otra regla para encadenar otra acción. Las condiciones adicionales usan Y/O/NO de izquierda a derecha; no hay agrupación anidada.';el.append(intro);
-      const all={...fieldExplanations,...ruleExplanations};
+      const intro=document.createElement('p');intro.textContent=environmentCategories.includes(catalogCategory.value)?'Este entorno dura siempre 5 rondas. No tiene evento, condición, objetivo ni límite de activaciones. Los efectos se aplican a todos los activos salvo filtros por tipo o inmunidades definidas en habilidades.':'Una regla = un evento + una condición + un objetivo + una acción. Agregá otra regla para encadenar otra acción. Las condiciones adicionales usan Y/O/NO de izquierda a derecha; no hay agrupación anidada.';el.append(intro);
+      const all=environmentCategories.includes(catalogCategory.value)?fieldExplanations:{...fieldExplanations,...ruleExplanations};
       for(const [key,description] of Object.entries(all)){
         const field=categoryBasics[catalogCategory.value]?.find(x=>x[0]===key);
         if(field||Object.hasOwn(ruleExplanations,key)){
@@ -1123,9 +1124,48 @@ const response = await fetch(
       const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "Quitar regla"; remove.addEventListener("click",()=>row.remove());
       row.append(grid,extra,addCondition,remove); builderRules.append(row);
     }
+    const environmentCategories=['weathers','fields','scenarios'];
+    const environmentEffects=document.getElementById('environmentEffects');
+    const environmentEditor=document.getElementById('environmentEditor');
+    const environmentAdd=document.getElementById('environmentAdd');
+    const environmentActions=[['','Elegí el efecto…'],['damage_percent','Causar daño (% PS máximos)'],['heal_percent','Recuperar vida (% PS máximos)'],['stat_change','Modificar niveles de estadística'],['critical_change','Modificar crítico (niveles)'],['remove_status','Eliminar estado alterado'],['block_status','Eliminar e impedir estados alterados']];
+    function environmentRow(effect={}){
+      const row=document.createElement('div');row.className='builder-row environment-row';
+      const grid=document.createElement('div');grid.className='builder-grid';
+      function field(label,control,key,help){const wrap=document.createElement('label');wrap.textContent=label;control.dataset.envKey=key;wrap.append(control);if(help){const hint=document.createElement('small');hint.textContent=help;wrap.append(hint);}grid.append(wrap);return wrap;}
+      const type=optionSelect(environmentActions,effect.type||'');field('Efecto',type,'type','Seleccioná la operación; aparecerán solo sus parámetros.');
+      const chance=fieldControl('number',effect.chance);field('Probabilidad (%)',chance,'chance','Probabilidad independiente de este efecto en cada ronda o evaluación.');
+      const filter=optionSelect([['all','Todos los tipos'],['include','Solo entidades con estos tipos'],['exclude','Excepto entidades con estos tipos']],effect.filter||'all');field('Filtro por tipos',filter,'filter','Incluir: basta tener uno de los tipos marcados. Excluir: ninguno de los tipos marcados.');
+      const typesWrap=document.createElement('fieldset');typesWrap.className='environment-types';const legend=document.createElement('legend');legend.textContent='Tipos incluidos / excluidos';typesWrap.append(legend);
+      for(const [id,label] of chartTypes){const l=document.createElement('label');const cb=document.createElement('input');cb.type='checkbox';cb.value=id;cb.dataset.envType='';cb.checked=(effect.types||[]).includes(id);l.append(cb,document.createTextNode(' '+label));typesWrap.append(l);}
+      grid.append(typesWrap);
+      const value=fieldControl('number',effect.value);const valueWrap=field('Porcentaje / niveles',value,'value','Daño y curación: 0–100 % de PS máximos. Estadísticas: −10 a +10 niveles.');
+      const stat=optionSelect(statOptions,effect.stat||'');const statWrap=field('Estadística',stat,'stat','Los PS no se modifican por niveles.');
+      const timing=fieldControl('text','');timing.dataset.envKey='timing';timing.hidden=true;grid.append(timing);
+      function adapt(){const t=type.value;typesWrap.hidden=filter.value==='all';valueWrap.hidden=!['damage_percent','heal_percent','stat_change','critical_change'].includes(t);statWrap.hidden=t!=='stat_change';
+        timing.value=['damage_percent','heal_percent'].includes(t)?'round_end':['stat_change','critical_change','block_status'].includes(t)?'continuous':'round_end';
+        if(t==='critical_change')valueWrap.querySelector('small').textContent='Crítico: −10 a +10 niveles; cada nivel equivale a 5 puntos porcentuales.';
+        else valueWrap.querySelector('small').textContent='Daño y curación: 0–100 % de PS máximos. Estadísticas: −10 a +10 niveles.';
+      }
+      type.addEventListener('change',adapt);filter.addEventListener('change',adapt);adapt();
+      const remove=document.createElement('button');remove.type='button';remove.textContent='Quitar este efecto';remove.addEventListener('click',()=>row.remove());
+      row.append(grid,remove);environmentEffects.append(row);
+    }
+    environmentAdd.addEventListener('click',()=>environmentRow());
+    function readEnvironmentEffects(){return [...environmentEffects.children].map(row=>{
+      const val=key=>row.querySelector(`[data-env-key="${key}"]`).value;
+      const type=val('type'),result={type,chance:val('chance')===''?null:Number(val('chance')),filter:val('filter'),types:val('filter')==='all'?[]:[...row.querySelectorAll('[data-env-type]:checked')].map(x=>x.value),timing:val('timing')};
+      if(['damage_percent','heal_percent','stat_change','critical_change'].includes(type))result.value=val('value')===''?null:Number(val('value'));
+      if(type==='stat_change')result.stat=val('stat');
+      return result;
+    });}
     function renderBuilder(definition) {
       loadedDefinition = structuredClone(definition);
       addBasicFields(definition); showMechanicHelp();
+      const isEnvironment=environmentCategories.includes(catalogCategory.value);
+      environmentEditor.hidden=!isEnvironment;document.getElementById('builderAddRule').hidden=isEnvironment;
+      environmentEffects.replaceChildren();
+      if(isEnvironment)for(const effect of definition.fieldEffects||[])environmentRow(effect);
       builderRules.replaceChildren();
       for (const rule of Array.isArray(definition.rules) ? definition.rules : []) addRule(rule);
       catalogDefinition.value = JSON.stringify(definition,null,2);
@@ -1140,6 +1180,7 @@ const response = await fetch(
         else if (kind === "number") result[key] = control.value === "" ? null : Number(control.value);
         else result[key] = control.value.trim();
       }
+      if(environmentCategories.includes(catalogCategory.value)){result.duration=5;result.rules=[];result.fieldEffects=readEnvironmentEffects();return result;}
       result.rules = [...builderRules.children].map(row => {
         const val = key => row.querySelector(`[data-rule-key="${key}"]`).value;
         return {
@@ -1232,7 +1273,7 @@ const response = await fetch(
       try {
         definition = advancedMode ? JSON.parse(catalogDefinition.value) : readBuilder();
         if (!definition || typeof definition !== "object" || Array.isArray(definition)) throw Error();
-        if (Array.isArray(definition.rules)) for(const [i,rule] of definition.rules.entries()) { if(!rule.event||!rule.target||!rule.action?.type||!rule.condition?.type) throw Error(`Regla ${i+1}: elegí evento, condición, objetivo y acción.`); for(const key of ["chance","duration","limit"]) if(rule[key]===null||!Number.isFinite(rule[key])) throw Error(`Regla ${i+1}: completá ${key}; no se asigna automáticamente.`); if(rule.chance<0||rule.chance>100||rule.duration<0||rule.limit<0) throw Error(`Regla ${i+1}: valores fuera de rango.`); }
+        if (!environmentCategories.includes(catalogCategory.value) && Array.isArray(definition.rules)) for(const [i,rule] of definition.rules.entries()) { if(!rule.event||!rule.target||!rule.action?.type||!rule.condition?.type) throw Error(`Regla ${i+1}: elegí evento, condición, objetivo y acción.`); for(const key of ["chance","duration","limit"]) if(rule[key]===null||!Number.isFinite(rule[key])) throw Error(`Regla ${i+1}: completá ${key}; no se asigna automáticamente.`); if(rule.chance<0||rule.chance>100||rule.duration<0||rule.limit<0) throw Error(`Regla ${i+1}: valores fuera de rango.`); }
       } catch (error) { catalogStatus.textContent = error.message || "Configuración inválida."; return; }
       catalogSave.disabled = true; catalogStatus.textContent = "Guardando...";
       try {
