@@ -14,9 +14,9 @@ export function validateEntity(entry) {
 function actor(entry, moves, abilities) {
   validateEntity(entry);
   const d = entry.definition, stats = base(d);
-  return { id:entry.id, name:entry.name, types:d.types, stats, hp:stats.hp, maxHp:stats.hp, stages:{}, environmentStages:{}, environmentCrit:0, environmentImmune:[], statusBlocked:false, status:null, effects:[], moves, abilities, used:{}, lastHitType:null };
+  return { id:entry.id, name:entry.name, types:d.types, stats, hp:stats.hp, maxHp:stats.hp, stages:{}, environmentStages:{}, environmentCrit:0, environmentImmune:[], statusBlocked:false, status:null, effects:[], moves, abilities, used:{}, cooldowns:{}, cooldownSetRound:{}, environmentCooldownOnUse:[], lastHitType:null };
 }
-function effective(a, stat) { return Math.max(1, Math.round((a.stats[stat]??100) * (1 + clamp((a.stages[stat] || 0)+(a.environmentStages[stat]||0), -10, 10) * .05))); }
+function effective(a, stat) { return Math.max(1, Math.round((a.stats[stat]??100) * (1 + clamp((a.stages[stat] || 0)+(a.environmentStages[stat]||0)+(a.statusStages?.[stat]||0), -10, 10) * .05))); }
 function meets(cond, user, target, state) {
   if (!cond || cond.type === 'always') return true;
   const v = cond.value;
@@ -67,18 +67,22 @@ function action(rule, user, opponent, state, depth) {
   }
   for (const t of targets) {
     if (!t || t.hp <= 0) continue;
-    if (act.type === 'heal') { const amount = Math.max(0,integer(v)); t.hp = Math.min(t.maxHp,t.hp+amount); state.log.push(`${t.name} recupera ${amount} PS.`); }
-    else if (act.type === 'damage') { const amount = Math.max(1,integer(v)); t.hp = Math.max(0,t.hp-amount); state.log.push(`${t.name} recibe ${amount} de daño adicional.`); }
-    else if (act.type === 'stat_change' && ['attack','defense','specialAttack','specialDefense','speed','accuracy','evasion','criticalChance'].includes(act.stat)) { t.stages[act.stat] = clamp((t.stages[act.stat] || 0) + integer(v),-10,10); state.log.push(`${t.name}: ${act.stat} ${t.stages[act.stat]}.`); }
-    else if (act.type === 'apply_status' && !t.status && !t.statusBlocked) { t.status = {id:safe(v),turns:Math.max(0,integer(rule.duration))}; state.log.push(`${t.name} recibe estado ${t.status.id}.`); }
-    else if (act.type === 'remove_status') { t.status = null; state.log.push(`${t.name} pierde su estado.`); }
+    if (act.type === 'heal') { const before=t.hp, amount=Math.max(0,integer(t.maxHp*percent(v)/100)); t.hp=Math.min(t.maxHp,t.hp+amount); const actual=t.hp-before; if(actual>0)state.log.push(`${t.name} recupera ${actual} PS (${percent(v)} %).`); }
+    else if (act.type === 'damage') { const amount=percent(v)===0?0:Math.max(1,integer(t.maxHp*percent(v)/100));if(amount>0){t.hp=Math.max(0,t.hp-amount);state.log.push(`${t.name} recibe ${amount} de daño adicional (${percent(v)} %).`);} }
+    else if (act.type === 'heal_from_damage') { const dealt=state.lastDamage?.attackerId===user.id?state.lastDamage.amount:0,before=t.hp; const amount=Math.max(0,integer(dealt*percent(v)/100)); t.hp=Math.min(t.maxHp,t.hp+amount); const actual=t.hp-before;if(actual>0)state.log.push(`${t.name} recupera ${actual} PS (${percent(v)} % del daño infligido).`); }
+    else if (act.type === 'stat_change' && ['attack','defense','specialAttack','specialDefense','speed','accuracy','evasion','criticalChance'].includes(act.stat)) { const before=t.stages[act.stat]||0,next=clamp(before+integer(v),-10,10),delta=next-before;t.stages[act.stat]=next;if(delta){t.statSources.push({stat:act.stat,value:delta,sourceName:state.currentSourceName||'Efecto',sourceKind:state.currentSourceKind||'efecto',sourceActor:state.currentSourceActor||user.name});state.log.push(`${t.name}: ${act.stat} ${next}.`);} }
+    else if (act.type === 'apply_status' && !t.status && !t.statusBlocked) { const st=state.catalog.statuses?.[safe(v)],f=st?.definition?.typeFilter||{mode:'all',types:[]},matched=(f.types||[]).some(x=>t.types.includes(x)),immune=f.mode==='exclude'&&matched||f.mode==='include'&&!matched;if(immune){state.log.push(`${t.name} es inmune a ${st?.name||safe(v)}.`);}else{t.status={id:safe(v),turns:Math.max(0,integer(rule.duration))};state.refreshStatus?.();state.log.push(`${t.name} recibe ${st?.name||t.status.id}.`);} }
+    else if (act.type === 'remove_status') { if(t.status){const old=state.catalog.statuses?.[t.status.id]?.name||t.status.id;t.status=null;state.refreshStatus?.();state.log.push(`${t.name} pierde ${old}.`);} }
     else if (act.type === 'suppress_abilities') { t.effects.push({id:'suppressed',turns:Math.max(1,integer(rule.duration))}); state.log.push(`${t.name}: habilidades anuladas.`); }
     else if (act.type === 'remove_effect') t.effects = t.effects.filter(e=>e.id!==v);
     else if (act.type === 'restrict_moves') t.effects.push({id:'restrict_moves',turns:Math.max(1,integer(rule.duration))});
+    else if (act.type === 'modify_active_cooldowns') { for(const [mid,n] of Object.entries(t.cooldowns)){if(n<=0)continue;const next=Math.max(0,n+integer(v));t.cooldowns[mid]=next;const m=t.moves.find(x=>x.id===mid);state.log.push(`${t.name}: cooldown activo de ${m?.name||mid} ${integer(v)>=0?'+':''}${integer(v)} → ${next}.`);} }
+    else if (act.type === 'cooldown_on_use') { t.effects.push({id:'cooldown_on_use',value:integer(v),turns:Math.max(1,integer(rule.duration)||1)}); state.log.push(`${t.name}: sus movimientos usados reciben ${integer(v)>=0?'+':''}${integer(v)} turno(s) de cooldown adicional.`); }
   }
 }
 function rulesFor(entry, event, user, opponent, state) {
   if (user.hp <= 0) return;
+  if(event==='on_status' && user.status){const st=state.catalog.statuses?.[user.status.id];for(const rule of st?.definition?.rules||[]){if(rule.event==='on_status'&&rule.action?.type!=='stat_change'&&conditionsPass(rule,user,opponent,state)&&chance(rule,state)){state.currentSourceName=st.name;state.currentSourceKind='estado';state.currentSourceActor=user.name;action(rule,user,opponent,state,0);state.currentSourceName='';}}}
   for (const ability of user.abilities) {
     if (!ability || user.effects.some(e=>e.id==='suppressed')) continue;
     for (const [i,rule] of (ability.definition.rules || []).entries()) {
@@ -86,16 +90,17 @@ function rulesFor(entry, event, user, opponent, state) {
       if (rule.event !== event || (rule.limit > 0 && (user.used[key] || 0) >= rule.limit)) continue;
       if (!conditionsPass(rule,user,opponent,state) || !chance(rule,state)) continue;
       user.used[key] = (user.used[key] || 0)+1;
-      action(rule,user,opponent,state,0);
+      state.currentSourceName=entry?.name||state.currentSourceName||'Efecto';state.currentSourceKind=entry?'habilidad':'efecto';state.currentSourceActor=user.name;action(rule,user,opponent,state,0);state.currentSourceName='';
     }
   }
 }
 function hit(attacker, defender, move, state) {
   const d = move.definition;
   if (attacker.hp <= 0 || defender.hp <= 0) return;
+  if ((attacker.cooldowns[move.id]||0)>0) { state.log.push(`${attacker.name} no puede usar ${move.name}: quedan ${attacker.cooldowns[move.id]} turnos de cooldown.`); return; }
   if (attacker.effects.some(e=>e.id==='restrict_moves')) { state.log.push(`${attacker.name} tiene ataques restringidos.`); return; }
   rulesFor(null,'on_attack',attacker,defender,state);
-  if (d.accuracy !== null && d.accuracy !== undefined && state.random()*100 >= percent(Number(d.accuracy) * (effective(attacker,'accuracy')/100) / (effective(defender,'evasion')/100))) { state.log.push(`${attacker.name} falla ${move.name}.`); return; }
+  state.log.push(`${attacker.name} usó ${move.name}.`);if (d.accuracy !== null && d.accuracy !== undefined && state.random()*100 >= percent(Number(d.accuracy) * (effective(attacker,'accuracy')/100) / (effective(defender,'evasion')/100))) { state.log.push(`${attacker.name} falló.`); return; }
   let damage = 0;
   if (d.category !== 'status' && Number(d.power) > 0) {
     const attack = effective(attacker,d.category === 'special'?'specialAttack':'attack');
@@ -112,24 +117,26 @@ function hit(attacker, defender, move, state) {
     if (state.random()*100 < percent((d.criticalChance ?? 0) + attacker.environmentCrit + (attacker.stages.criticalChance||0)*5)) { bonus += .5; state.log.push('¡Golpe crítico!'); }
     damage = immune ? 0 : Math.max(1,integer(raw*(1+bonus)));
     defender.hp = Math.max(0,defender.hp-damage);
+    state.lastDamage={attackerId:attacker.id,defenderId:defender.id,amount:damage};
     defender.lastHitType = d.type;
-    state.log.push(`${attacker.name} usa ${move.name}: ${damage} daño a ${defender.name}.`);
-  } else state.log.push(`${attacker.name} usa ${move.name}.`);
-  for (const rule of d.rules || []) if (rule.event === 'manual' && conditionsPass(rule,attacker,defender,state) && chance(rule,state)) action(rule,attacker,defender,state,0);
+    state.log.push(`${defender.name} recibe ${damage} de daño.`);
+  }
+  state.currentSourceName=move.name;state.currentSourceKind='movimiento';state.currentSourceActor=attacker.name;for (const rule of d.rules || []) if (rule.event === 'manual' && conditionsPass(rule,attacker,defender,state) && chance(rule,state)) action(rule,attacker,defender,state,0);state.currentSourceName='';
   rulesFor(null,'on_hit',attacker,defender,state);
   if (damage > 0) rulesFor(null,'on_damage_taken',defender,attacker,state);
+  let appliedCd=Math.max(0,integer(d.cooldown||0));for(const e of attacker.effects.filter(e=>e.id==='cooldown_on_use'))appliedCd=Math.max(0,appliedCd+integer(e.value));for(const e of attacker.environmentCooldownOnUse||[])if(chance(e,state))appliedCd=Math.max(0,appliedCd+integer(e.value));if(appliedCd>0){attacker.cooldowns[move.id]=appliedCd;attacker.cooldownSetRound[move.id]=state.round;state.log.push(`${attacker.name} tiene ${appliedCd} ${appliedCd===1?'turno restante':'turnos restantes'} para poder volver a usar ${move.name}.`);}
 }
 function tick(actor) { for (const e of actor.effects) if (e.turns > 0) e.turns--; actor.effects = actor.effects.filter(e=>e.permanent || e.turns !== 0); if (actor.status?.turns > 0 && --actor.status.turns === 0) actor.status = null; }
 // Laboratorio de equipos: hasta ocho entidades por lado, una activa (Singles).
 // Las órdenes son datos declarativos, nunca código del usuario.
 export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,randomTape=[],randomSource,weather='',field='',scenario='',leftMove='',rightMove='',leftOrders=[],rightOrders=[]}) {
-  if (!Number.isInteger(turns) || turns < 1 || turns > 50) throw Error('Rondas entre 1 y 50.');
+  if (!Number.isInteger(turns) || turns < 0 || turns > 50) throw Error('Rondas entre 0 y 50.');
   if (!Array.isArray(randomTape) || randomTape.length > 30000 || randomTape.some(v=>typeof v!=='number'||!Number.isFinite(v)||v<0||v>=1)) throw Error('Historial RNG inválido.');
   const tape=randomTape.slice();
   let cursor=0;
   const fresh=typeof randomSource==='function'?randomSource:()=>crypto.getRandomValues(new Uint32Array(1))[0]/4294967296;
   const random=()=>{if(cursor<tape.length)return tape[cursor++];const v=fresh();if(!Number.isFinite(v)||v<0||v>=1)throw Error('RNG inválido.');tape.push(v);cursor++;return v;};
-  const state={chart,catalog,weather:'',field:'',scenario:'',weatherTurns:0,fieldTurns:0,scenarioTurns:0,random,log:[],timeline:[]};
+  const state={chart,catalog,weather:'',field:'',scenario:'',weatherTurns:0,fieldTurns:0,scenarioTurns:0,round:0,lastDamage:null,random,log:[],timeline:[]};
   const load=id=>{
     const e=catalog.entities[id];if(!e)throw Error('Entidad no encontrada: '+id);
     const d=e.definition;
@@ -147,7 +154,7 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
   const current=i=>teams[i][active[i]];
   state.current=current;
   const remaining=i=>teams[i].some(a=>a.hp>0);
-  const summary=p=>({id:p.id,name:p.name,hp:p.hp,maxHp:p.maxHp,stages:{...p.stages},environmentStages:{...p.environmentStages},environmentCrit:p.environmentCrit,status:p.status,effects:p.effects.map(e=>({...e})),types:p.types});
+  const summary=p=>({id:p.id,name:p.name,hp:p.hp,maxHp:p.maxHp,stages:{...p.stages},environmentStages:{...p.environmentStages},statusStages:{...(p.statusStages||{})},statSources:[...(p.statSources||[])],environmentCrit:p.environmentCrit,status:p.status,effects:p.effects.map(e=>({...e})),types:p.types,cooldowns:{...p.cooldowns}});
   const snapshot=(round)=>state.timeline.push({round,left:summary(current(0)),right:summary(current(1)),weather:state.weather,field:state.field,scenario:state.scenario,teams:teams.map(t=>t.map(summary))});
   const enter=i=>rulesFor(null,'on_enter',current(i),current(1-i),state);
   const switchTo=(i,index,forced=false)=>{
@@ -172,8 +179,9 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
     if(requested){const m=a.moves.find(m=>m.id===requested);if(!m)throw Error('El ataque '+requested+' no pertenece a '+a.name+'.');return m;}
     // Selección aleatoria entre ataques utilizables. Nunca priorizar un ataque
     // ofensivo completamente inmune cuando existe una alternativa útil.
-    const useful=a.moves.filter(m=>m.definition.category==='status'||Number(m.definition.power)<=0||!opponent.types.some(t=>state.chart?.[m.definition.type]?.[t]==='inmune'));
-    const pool=useful.length?useful:a.moves;
+    const available=a.moves.filter(m=>(a.cooldowns[m.id]||0)<=0); if(!available.length)throw Error(a.name+' no tiene movimientos disponibles por cooldown.');
+    const useful=available.filter(m=>m.definition.category==='status'||Number(m.definition.power)<=0||!opponent.types.some(t=>state.chart?.[m.definition.type]?.[t]==='inmune'));
+    const pool=useful.length?useful:available;
     return pool[Math.floor(random()*pool.length)];
   };
   enter(0);enter(1);
@@ -187,7 +195,7 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
   const matches=(a,e)=>e.filter==='all'||(e.filter==='include'?e.types.some(t=>a.types.includes(t)):!e.types.some(t=>a.types.includes(t)));
   const immune=(a,kind)=>a.effects.some(e=>e.id==='environment_immunity'&&(e.kind==='all'||e.kind===kind)&&!(e.source==='ability'&&a.effects.some(x=>x.id==='suppressed')));
   const refreshEnvironment=()=>{
-    for(const i of [0,1]){const a=current(i);a.environmentStages={};a.environmentCrit=0;a.statusBlocked=false;}
+    for(const i of [0,1]){const a=current(i);a.environmentStages={};a.environmentCrit=0;a.environmentCooldownOnUse=[];a.statusBlocked=false;}
     for(const [key,kind] of envKinds){const id=state[key],entry=state.catalog[kind]?.[id];if(!id||!entry)continue;
       for(const e of entry.definition.fieldEffects||[]){
         if(e.timing!=='continuous')continue;
@@ -196,8 +204,9 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
             if(e.stat==='criticalChance')a.environmentCrit+=e.value*5;
             else a.environmentStages[e.stat]=(a.environmentStages[e.stat]||0)+e.value;
           }else if(e.type==='critical_change')a.environmentCrit+=e.value*5;
-          else if(e.type==='remove_status')a.status=null;
+          else if(e.type==='remove_status'&&a.status){a.status=null;state.refreshStatus?.();}
           else if(e.type==='block_status'){a.status=null;a.statusBlocked=true;}
+          else if(e.type==='cooldown_on_use')a.environmentCooldownOnUse.push(e);
         }
       }
     }
@@ -206,18 +215,22 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
     for(const [key,kind] of envKinds){const id=state[key],entry=state.catalog[kind]?.[id];if(!id||!entry)continue;
       for(const e of entry.definition.fieldEffects||[]){if(e.timing!=='round_end')continue;
         for(const i of [0,1]){const a=current(i);if(a.hp<=0||immune(a,kind)||!matches(a,e)||!chance(e,state))continue;
-          if(e.type==='damage_percent'){const amount=e.value===0?0:Math.max(1,integer(a.maxHp*e.value/100));a.hp=Math.max(0,a.hp-amount);state.log.push(entry.name+': '+a.name+' pierde '+amount+' PS ('+e.value+' %).');}
-          else if(e.type==='heal_percent'){const amount=integer(a.maxHp*e.value/100);a.hp=Math.min(a.maxHp,a.hp+amount);state.log.push(entry.name+': '+a.name+' recupera '+amount+' PS ('+e.value+' %).');}
-          else if(e.type==='remove_status')a.status=null;
+          if(e.type==='damage_percent'){const amount=e.value===0?0:Math.max(1,integer(a.maxHp*e.value/100));if(amount>0){a.hp=Math.max(0,a.hp-amount);state.log.push(entry.name+': '+a.name+' pierde '+amount+' PS ('+e.value+' %).');}}
+          else if(e.type==='heal_percent'){const before=a.hp,amount=integer(a.maxHp*e.value/100);a.hp=Math.min(a.maxHp,a.hp+amount);const actual=a.hp-before;if(actual>0)state.log.push(entry.name+': '+a.name+' recupera '+actual+' PS ('+e.value+' %).');}
+          else if(e.type==='cooldown_change'){for(const [mid,n] of Object.entries(a.cooldowns)){if(n<=0)continue;const next=Math.max(0,n+integer(e.value));a.cooldowns[mid]=next;const m=a.moves.find(x=>x.id===mid);state.log.push(entry.name+': cooldown activo de '+(m?.name||mid)+' en '+a.name+' '+(e.value>=0?'+':'')+e.value+' → '+next+'.');}}
+          else if(e.type==='remove_status'&&a.status){a.status=null;state.refreshStatus?.();}
           else if(e.type==='block_status'){a.status=null;a.statusBlocked=true;}
+          else if(e.type==='cooldown_on_use')a.environmentCooldownOnUse.push(e);
         }
       }
     }
   };
+  const refreshStatus=()=>{for(const t of teams)for(const a of t){a.statusStages={};if(!a.status)continue;const st=state.catalog.statuses?.[a.status.id];for(const r of st?.definition?.rules||[]){if(r.event!=='on_status'||r.action?.type!=='stat_change')continue;const stat=r.action.stat,val=integer(r.action.value);a.statusStages[stat]=(a.statusStages[stat]||0)+val;}}};
+  state.refreshStatus=refreshStatus;refreshStatus();
   state.refreshEnvironment=refreshEnvironment;
   let played=0;
   for(let round=1;round<=turns&&remaining(0)&&remaining(1);round++){
-    played=round;state.log.push('— Ronda '+round+' —');
+    played=round;state.round=round;state.log.push('— Ronda '+round+' —');
     autoReplace(0);autoReplace(1);
     const orders=[parseOrder(leftOrders,round,'izquierda',leftMove),parseOrder(rightOrders,round,'derecha',rightMove)];
     // Cambios declarados se resuelven antes de los ataques, por orden de Velocidad.
@@ -240,10 +253,12 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
       hit(turn.actor,opponent,turn.move,state);
       // Los reemplazos automáticos entran después de resolver el grupo de acciones.
     }
-    for(const i of [0,1])if(current(i).hp>0)rulesFor(null,'turn_end',current(i),current(1-i),state);
+    for(const i of [0,1])if(current(i).hp>0){rulesFor(null,'on_status',current(i),current(1-i),state);rulesFor(null,'turn_end',current(i),current(1-i),state);}
     for(const i of [0,1])if(current(i).hp>0)rulesFor(null,'round_end',current(i),current(1-i),state);
     environmentEnd();
-    for(const t of teams)for(const a of t)if(a.hp>0)tick(a);
+    // El turno de uso NO cuenta para reducir su propio cooldown. Solo se reducen al final de turnos posteriores.
+    for(const t of teams)for(const a of t)for(const [mid,n] of Object.entries(a.cooldowns)){if(n<=0||a.cooldownSetRound[mid]===round)continue;const next=n-1;a.cooldowns[mid]=next;const m=a.moves.find(x=>x.id===mid);state.log.push(next>0?`${a.name} tiene ${next} ${next===1?'turno restante':'turnos restantes'} para poder volver a usar ${m?.name||mid}.`:`${a.name} puede volver a usar ${m?.name||mid}.`);}
+    for(const t of teams)for(const a of t)if(a.hp>0)tick(a);state.refreshStatus?.();
     if(state.weatherTurns>0&&--state.weatherTurns===0){state.weather='';state.log.push('El clima termina.');}
     if(state.fieldTurns>0&&--state.fieldTurns===0){state.field='';state.log.push('El campo termina.');}
     if(state.scenarioTurns>0&&--state.scenarioTurns===0){state.scenario='';state.log.push('El escenario termina.');}

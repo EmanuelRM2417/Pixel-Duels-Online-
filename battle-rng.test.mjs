@@ -8,9 +8,20 @@ const first=simulate({...base,turns:1,randomSource:()=>0.01});
 assert.ok(!first.log.some(x=>x.includes('usa dark:')),'auto skips immune offensive moves');
 const second=simulate({...base,turns:2,randomTape:first.randomTape,randomSource:()=>0.99,leftOrders:[null,{move:'special'}]});
 assert.deepEqual(second.timeline[1],first.timeline[1],'round 1 remains unchanged when round 2 is manually chosen');
-assert.ok(second.log.some(x=>x.includes('usa special')),'manual order applied on second round');
+assert.ok(second.log.some(x=>x.includes('usó special')),'manual order applied on second round');
 const third=simulate({...base,turns:2,randomTape:second.randomTape,leftOrders:[null,{move:'special'}]});
 assert.deepEqual(third,second,'replay preserves random outcomes');
 const fourth=simulate({...base,turns:1,leftMove:'fire',rightMove:'fire',randomSource:()=>0.99});
-assert.ok(fourth.log.some(x=>x.includes('usa fire')),'manual move is not replaced by RNG');
+assert.ok(fourth.log.some(x=>x.includes('usó fire')),'manual move is not replaced by RNG');
 console.log('PASS: RNG auto skips immunity, manual turn choice, random replay, no user seed');
+
+// Regresión: preparar una batalla manual con turns=0 no puede resolver rondas.
+{
+  const preview = simulate({...base,turns:0,randomTape:[],randomSource:()=>0.25});
+  assert.equal(preview.rounds,0);
+  assert.equal(preview.timeline.length,1);
+  assert.equal(preview.timeline[0].round,0);
+  assert.equal(preview.left.hp,preview.left.maxHp);
+  assert.equal(preview.right.hp,preview.right.maxHp);
+  assert.equal(preview.log.some(line=>line.startsWith('— Ronda ')),false);
+}
