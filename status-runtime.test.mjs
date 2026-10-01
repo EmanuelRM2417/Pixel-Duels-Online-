@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {simulate} from './battle-engine.js';
+const noop={id:'noop',name:'Noop',definition:{type:'agua',category:'status',power:0,accuracy:100,criticalChance:0,priority:0,cooldown:0,rules:[]}};
+const burnMove={id:'burn',name:'Quemar',definition:{type:'fuego',category:'status',power:0,accuracy:100,criticalChance:0,priority:0,cooldown:0,rules:[{event:'manual',condition:{type:'always',value:''},conditions:[],target:'target',action:{type:'apply_status',value:'quemadura',stat:''},chance:100,duration:3,limit:0}]}};
+const ent=(id,type,moves)=>({id,name:id,definition:{types:[type],hp:100,attack:50,defense:50,specialAttack:50,specialDefense:50,speed:50,moveIds:moves.slice(0,3),uniqueMoveId:moves[3],globalAbilityId:'g',uniqueAbilityId:'u'}});
+const status={id:'quemadura',name:'Quemadura',definition:{duration:3,typeFilter:{mode:'exclude',types:['fuego']},rules:[{event:'on_status',condition:{type:'always',value:''},conditions:[],target:'self',action:{type:'damage',value:5,stat:''},chance:100,duration:0,limit:0},{event:'on_status',condition:{type:'always',value:''},conditions:[],target:'self',action:{type:'stat_change',value:-1,stat:'evasion'},chance:100,duration:0,limit:0}]}};
+const catalog={entities:{a:ent('a','espectro',['burn','noop','noop','noop']),b:ent('b','espectro',['noop','noop','noop','noop']),f:ent('f','fuego',['noop','noop','noop','noop'])},moves:{burn:burnMove,noop},abilities:{g:{name:'g',definition:{rules:[]}},u:{name:'u',definition:{rules:[]}}},effects:{},statuses:{quemadura:status}};
+let r=simulate({left:'a',right:'b',catalog,chart:{},turns:1,leftMove:'burn',rightMove:'noop',randomSource:()=>.5});
+assert.equal(r.right.hp,95);assert.equal(r.right.statusStages.evasion,-1);assert.ok(r.log.some(x=>x.includes('recibe Quemadura')));assert.ok(r.log.some(x=>x.includes('daño adicional')));
+r=simulate({left:'a',right:'f',catalog,chart:{},turns:1,leftMove:'burn',rightMove:'noop',randomSource:()=>.5});
+assert.equal(r.right.status,null);assert.ok(r.log.some(x=>x.includes('es inmune a Quemadura')));
+console.log('status runtime ok');

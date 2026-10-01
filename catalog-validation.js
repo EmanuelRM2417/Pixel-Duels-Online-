@@ -66,7 +66,7 @@ export function validateDefinition(category,d){
   if(!Array.isArray(d.moveIds)||d.moveIds.length!==3||new Set([...d.moveIds,d.uniqueMoveId]).size!==4||![...d.moveIds,d.uniqueMoveId,d.globalAbilityId,d.uniqueAbilityId].every(slug))fail('Entidad: tres ataques globales, uno exclusivo y dos habilidades con IDs válidos.');
   if(d.spriteId&&!slug(d.spriteId))fail('Entidad: sprite ID inválido.');
  }
- if(category==='statuses'&&!Number.isInteger(d.duration))fail('Estado: duración entera obligatoria.');
+ if(category==='statuses'){if(!Number.isInteger(d.duration))fail('Estado: duración entera obligatoria.');const f=d.typeFilter||{mode:'all',types:[]};if(!['all','include','exclude'].includes(f.mode)||!Array.isArray(f.types)||f.types.some(t=>!TYPES.includes(t)))fail('Estado: filtro de tipos inválido.');if(f.mode!=='all'&&!f.types.length)fail('Estado: seleccioná al menos un tipo para incluir/excluir.');if(f.mode==='all'&&f.types.length)fail('Estado: Todos no lleva tipos seleccionados.');}
  if(ENV_CATS.includes(category)){
   if(d.duration!==5)fail('Climas, campos y escenarios duran exactamente 5 rondas.');
   if(!Array.isArray(d.fieldEffects)||d.fieldEffects.length>100)fail('Efectos de entorno: se requiere una lista de hasta 100.');
