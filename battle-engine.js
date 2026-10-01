@@ -122,7 +122,7 @@ function hit(attacker, defender, move, state) {
 function tick(actor) { for (const e of actor.effects) if (e.turns > 0) e.turns--; actor.effects = actor.effects.filter(e=>e.permanent || e.turns !== 0); if (actor.status?.turns > 0 && --actor.status.turns === 0) actor.status = null; }
 // Laboratorio de equipos: hasta ocho entidades por lado, una activa (Singles).
 // Las órdenes son datos declarativos, nunca código del usuario.
-export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,randomTape=[],randomSource,weather='',field='',leftMove='',rightMove='',leftOrders=[],rightOrders=[]}) {
+export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,randomTape=[],randomSource,weather='',field='',scenario='',leftMove='',rightMove='',leftOrders=[],rightOrders=[]}) {
   if (!Number.isInteger(turns) || turns < 1 || turns > 50) throw Error('Rondas entre 1 y 50.');
   if (!Array.isArray(randomTape) || randomTape.length > 30000 || randomTape.some(v=>typeof v!=='number'||!Number.isFinite(v)||v<0||v>=1)) throw Error('Historial RNG inválido.');
   const tape=randomTape.slice();
@@ -147,7 +147,7 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
   const current=i=>teams[i][active[i]];
   state.current=current;
   const remaining=i=>teams[i].some(a=>a.hp>0);
-  const summary=p=>({id:p.id,name:p.name,hp:p.hp,maxHp:p.maxHp,stages:{...p.stages},status:p.status,types:p.types});
+  const summary=p=>({id:p.id,name:p.name,hp:p.hp,maxHp:p.maxHp,stages:{...p.stages},environmentStages:{...p.environmentStages},environmentCrit:p.environmentCrit,status:p.status,effects:p.effects.map(e=>({...e})),types:p.types});
   const snapshot=(round)=>state.timeline.push({round,left:summary(current(0)),right:summary(current(1)),weather:state.weather,field:state.field,scenario:state.scenario,teams:teams.map(t=>t.map(summary))});
   const enter=i=>rulesFor(null,'on_enter',current(i),current(1-i),state);
   const switchTo=(i,index,forced=false)=>{
@@ -178,7 +178,7 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
   };
   enter(0);enter(1);
   // Los entornos de prueba solo se activan si existe su definición en el catálogo.
-  for(const [key,id,kind] of [['weather',weather,'weathers'],['field',field,'fields']])if(id){
+  for(const [key,id,kind] of [['weather',weather,'weathers'],['field',field,'fields'],['scenario',scenario,'scenarios']])if(id){
     if(!catalog[kind]?.[id])throw Error('Entorno no encontrado: '+kind+'/'+id);
     state[key]=id;state[key+'Turns']=5;state.log.push('Entorno inicial '+id+' (5 rondas).');
   }
