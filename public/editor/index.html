@@ -433,25 +433,26 @@
       <label>Ataque izquierda <select id="simLeftMove"><option value="">Automático</option></select></label>
       <label>Ataque derecha <select id="simRightMove"><option value="">Automático</option></select></label>
       <label>Rondas máximas <input id="simTurns" type="number" min="1" max="50" value="10"></label>
-      <label>Semilla reproducible <input id="simSeed" type="number" value="12345"></label>
+      <label>Control izquierdo <select id="simModeLeft"><option value="auto">Automático (RNG)</option><option value="manual">Manual, elegir cada ronda</option></select></label>
+      <label>Control derecho <select id="simModeRight"><option value="auto">Automático (RNG)</option><option value="manual">Manual, elegir cada ronda</option></select></label>
       <label>Clima inicial <select id="simWeather"><option value="">Ninguno</option></select></label>
       <label>Campo inicial <select id="simField"><option value="">Ninguno</option></select></label>
     </div>
-    <details class="builder-note" open><summary><strong>Equipos y órdenes por ronda</strong> (opcional)</summary>
+    <details class="builder-note" open><summary><strong>Equipos</strong> (opcional)</summary>
       <p>Los equipos se escriben con IDs separados por comas, en el orden de entrada. Si dejás un equipo vacío, se usa la entidad elegida arriba. Máximo ocho entidades diferentes por lado. Al caer una entidad entra automáticamente la siguiente disponible.</p>
       <div class="builder-grid">
         <label>Equipo izquierdo (IDs separados por comas)<textarea id="simLeftTeam" rows="2" placeholder="ejemplo: entidad-uno, entidad-dos"></textarea></label>
         <label>Equipo derecho (IDs separados por comas)<textarea id="simRightTeam" rows="2" placeholder="ejemplo: rival-uno, rival-dos"></textarea></label>
-        <label>Órdenes izquierda (una línea por ronda)<textarea id="simLeftOrders" rows="4" placeholder="ataque-id&#10;cambiar:2&#10;ataque-id"></textarea></label>
-        <label>Órdenes derecha (una línea por ronda)<textarea id="simRightOrders" rows="4" placeholder="ataque-id&#10;cambiar:1&#10;ataque-id"></textarea></label>
       </div>
-      <p>Una línea de orden es el <strong>ID de un ataque</strong>, <code>cambiar:2</code> para entrar con la tercera entidad (índices desde cero), o una línea vacía para ataque automático. Un cambio consume la acción de ese lado en esa ronda. Los ataques elegidos arriba se usan en las rondas sin orden.</p>
+      <p>Las órdenes de ataques se eligen durante la batalla cuando activás el control manual. El relevo por KO es automático; los cambios voluntarios por ronda todavía no están disponibles en esta interfaz.</p>
     </details>
-    <button type="button" id="simRun">Simular batalla</button>
+    <button type="button" id="simRun">Iniciar nueva batalla</button>
+    <button type="button" id="simNext" hidden>Resolver esta ronda</button>
+    <p class="help">En automático, el motor selecciona ataques con RNG durante el combate. En manual, elegís un ataque para cada ronda del lado correspondiente; los aciertos, críticos, efectos y desempates siguen siendo aleatorios. No existe semilla configurable. Elegir un ataque arriba solo tiene efecto en modo manual.</p>
     <p id="simStatus" role="status">Elegí dos entidades completas para comenzar.</p>
     <div id="simVisual" class="builder-grid" aria-live="polite"></div>
     <pre id="simLog" style="white-space:pre-wrap;max-height:420px;overflow:auto" aria-label="Registro de combate"></pre>
-    <p class="help">Alcance actual: Singles por equipos de hasta ocho, con una entidad activa por lado; elige automáticamente el primer ataque ofensivo o el que elijás, usa PS enteros, prioridad, Velocidad, crítico, STAB y modificadores de tipo aditivos. Las acciones admitidas son daño, curación, cambio de estadísticas, estado, eliminación de estado, clima, campo, supresión temporal, restricción temporal y efectos reutilizables. Admite cambios y órdenes de ataque programadas por ronda; no incluye aún Doubles, controles interactivos en vivo ni todas las reglas avanzadas.</p>
+    <p class="help">Alcance: Singles por equipos de hasta ocho. El modo manual avanza ronda por ronda, y el automático resuelve la batalla completa. No incluye Doubles ni todas las interacciones avanzadas. Las decisiones aleatorias se generan en el servidor al necesitarse; el historial interno mantiene los resultados de las rondas ya resueltas.</p>
   </section>
 
   <section class="panel icon-panel" data-studio-view="type-icons" aria-labelledby="typeIconHeading" hidden>
@@ -1310,29 +1311,86 @@ const response = await fetch(
     }
     document.getElementById('simLeft').addEventListener('change',refreshSimMoves);
     document.getElementById('simRight').addEventListener('change',refreshSimMoves);
-    document.getElementById('simRun').addEventListener('click',async()=>{
+    // Batallas manuales: cada nueva ronda se calcula en el servidor con RNG
+    // criptográfico. El historial aleatorio preserva las rondas anteriores
+    // cuando se reconstruye el estado; no es una semilla elegida por el usuario.
+    let simSession=null;
+    const simNext=document.getElementById('simNext');
+    function simTeam(id){return document.getElementById(id).value.trim().split(',').map(x=>x.trim()).filter(Boolean);}
+    function simMode(side){return document.getElementById('simMode'+side).value;}
+    function simSelect(side){return document.getElementById('sim'+side+'Move');}
+    function simShow(data){
       const status=document.getElementById('simStatus'),log=document.getElementById('simLog');
-      status.textContent='Simulando...';log.textContent='';document.getElementById('simVisual').replaceChildren();
-      try {
-        const team=id=>document.getElementById(id).value.trim().split(',').map(x=>x.trim()).filter(Boolean);
-        const orders=id=>document.getElementById(id).value.split('\n').map(x=>{x=x.trim();if(!x)return null;if(x.startsWith('cambiar:'))return {switch:Number(x.slice(8))};return {move:x};});
-        const response=await fetch('/editor-api/simulate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({leftTeam:team('simLeftTeam').length?team('simLeftTeam'):undefined,rightTeam:team('simRightTeam').length?team('simRightTeam'):undefined,leftOrders:orders('simLeftOrders'),rightOrders:orders('simRightOrders'),left:document.getElementById('simLeft').value,right:document.getElementById('simRight').value,turns:Number(document.getElementById('simTurns').value),seed:Number(document.getElementById('simSeed').value),weather:document.getElementById('simWeather').value,field:document.getElementById('simField').value,leftMove:document.getElementById('simLeftMove').value,rightMove:document.getElementById('simRightMove').value})});
-        const data=await response.json();if(!response.ok)throw Error(data.error||'Error de simulación');
-        status.textContent=`${data.left.name}: ${data.left.hp}/${data.left.maxHp} PS · ${data.right.name}: ${data.right.hp}/${data.right.maxHp} PS · Ganador: ${data.winner||'Empate'}`;
-        log.textContent=data.log.join('\n');
-        const visual=document.getElementById('simVisual');
-        for(const [side,team] of [['Izquierda',data.leftTeam],['Derecha',data.rightTeam]]){
-          const panel=document.createElement('div');panel.className='builder-note';
-          const title=document.createElement('strong');title.textContent=side+' · '+team.filter(x=>x.hp>0).length+'/'+team.length+' disponibles';panel.append(title);
-          for(const unit of team){
-            const line=document.createElement('p');line.style.margin='8px 0';line.textContent=unit.name+' · '+unit.hp+'/'+unit.maxHp+' PS';
-            const bar=document.createElement('progress');bar.max=unit.maxHp;bar.value=unit.hp;bar.style.width='100%';line.append(document.createElement('br'),bar);panel.append(line);
-          }
-          visual.append(panel);
+      status.textContent=`Ronda ${data.rounds} · ${data.left.name}: ${data.left.hp}/${data.left.maxHp} PS · ${data.right.name}: ${data.right.hp}/${data.right.maxHp} PS · ${data.winner?'Ganador: '+(data.winner==='left'?'izquierda':'derecha'):'Sin ganador aún'}`;
+      log.textContent=data.log.join('\n');
+      const visual=document.getElementById('simVisual');visual.replaceChildren();
+      for(const [side,team] of [['Izquierda',data.leftTeam],['Derecha',data.rightTeam]]){
+        const panel=document.createElement('div');panel.className='builder-note';
+        const title=document.createElement('strong');title.textContent=side+' · '+team.filter(x=>x.hp>0).length+'/'+team.length+' disponibles';panel.append(title);
+        for(const unit of team){const line=document.createElement('p');line.style.margin='8px 0';line.textContent=unit.name+' · '+unit.hp+'/'+unit.maxHp+' PS';const bar=document.createElement('progress');bar.max=unit.maxHp;bar.value=unit.hp;bar.style.width='100%';line.append(document.createElement('br'),bar);panel.append(line);}
+        visual.append(panel);
+      }
+    }
+    async function simAdvance(full=false){
+      if(!simSession)return;
+      const status=document.getElementById('simStatus');
+      const s=simSession,round=s.round+1;
+      if(!full){
+        for(const side of ['Left','Right'])if(s['mode'+side]==='manual'&&!simSelect(side).value){status.textContent='Elegí el ataque del lado '+(side==='Left'?'izquierdo':'derecho')+' para la ronda '+round+'.';return;}
+        for(const [side,mode,orders] of [['Left',s.modeLeft,s.leftOrders],['Right',s.modeRight,s.rightOrders]]){
+          if(mode!=='manual'){orders.push(null);continue;}
+          const selected=simSelect(side).value;
+          if(!selected){status.textContent='Elegí el ataque del lado '+(side==='Left'?'izquierdo':'derecho')+' para la ronda '+round+'.';return;}
+          orders.push({move:selected});
         }
-        const rounds=document.createElement('p');rounds.className='builder-note';rounds.textContent='Rondas jugadas: '+data.rounds+' · Resultado: '+(data.winner==='left'?'gana izquierda':data.winner==='right'?'gana derecha':'sin ganador definitivo');visual.append(rounds);
-      }catch(e){status.textContent='Error: '+e.message;}
+      }
+      simNext.disabled=true;
+      try{
+        const response=await fetch('/editor-api/simulate-step',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+          left:s.left,right:s.right,leftTeam:s.leftTeam,rightTeam:s.rightTeam,
+          leftOrders:s.leftOrders,rightOrders:s.rightOrders,
+          turns:full?s.maxRounds:round,randomTape:s.randomTape,
+          weather:s.weather,field:s.field
+        })});
+        const data=await response.json();if(!response.ok)throw Error(data.error||'Error de simulación');
+        s.randomTape=data.randomTape;s.round=data.rounds;simShow(data);
+        const ended=!!data.winner||s.round>=s.maxRounds;
+        simNext.hidden=ended||full;
+        if(!ended&&!full){
+          // El próximo movimiento se elige de nuevo. Si hubo un relevo,
+          // actualizar la lista a los cuatro movimientos de la entidad activa.
+          for(const [side,unit] of [['Left',data.left],['Right',data.right]]){
+            const sel=simSelect(side);sel.replaceChildren(new Option('Elegí un ataque para la siguiente ronda…',''));
+            const entry=(cachedCatalog.entities||[]).find(e=>e.id===unit.id);
+            for(const id of [...(entry?.definition?.moveIds||[]),entry?.definition?.uniqueMoveId].filter(Boolean)){
+              const m=(cachedCatalog.moves||[]).find(x=>x.id===id);sel.add(new Option(m?.name||id,id));
+            }
+            sel.value='';
+          }
+        }
+      }catch(e){status.textContent='Error: '+e.message;simNext.hidden=false;}
+      finally{simNext.disabled=false;}
+    }
+    document.getElementById('simRun').addEventListener('click',async()=>{
+      const status=document.getElementById('simStatus');
+      const modeLeft=simMode('Left'),modeRight=simMode('Right');
+      simSession={left:document.getElementById('simLeft').value,right:document.getElementById('simRight').value,
+        leftTeam:simTeam('simLeftTeam').length?simTeam('simLeftTeam'):undefined,
+        rightTeam:simTeam('simRightTeam').length?simTeam('simRightTeam'):undefined,
+        weather:document.getElementById('simWeather').value,field:document.getElementById('simField').value,
+        maxRounds:Number(document.getElementById('simTurns').value),modeLeft,modeRight,
+        leftOrders:[],rightOrders:[],randomTape:[],round:0};
+      document.getElementById('simLog').textContent='';document.getElementById('simVisual').replaceChildren();
+      if(modeLeft==='auto'&&modeRight==='auto'){
+        status.textContent='Resolviendo batalla automática con RNG…';
+        simNext.hidden=true;await simAdvance(true);
+      }else{
+        for(const side of ['Left','Right'])if(simMode(side)==='manual')simSelect(side).value='';
+        status.textContent='Ronda 1: elegí los movimientos de los lados manuales y pulsá Resolver esta ronda.';
+        simNext.hidden=false;
+      }
     });
+    simNext.addEventListener('click',()=>simAdvance(false));
     loadCatalog();
     refreshReferences();
 
