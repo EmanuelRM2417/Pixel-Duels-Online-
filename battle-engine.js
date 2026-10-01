@@ -14,7 +14,7 @@ export function validateEntity(entry) {
 function actor(entry, moves, abilities) {
   validateEntity(entry);
   const d = entry.definition, stats = base(d);
-  return { id:entry.id, name:entry.name, types:d.types, stats, hp:stats.hp, maxHp:stats.hp, stages:{}, environmentStages:{}, environmentCrit:0, environmentImmune:[], statusBlocked:false, status:null, effects:[], moves, abilities, used:{}, lastHitType:null };
+  return { id:entry.id, name:entry.name, types:d.types, stats, hp:stats.hp, maxHp:stats.hp, stages:{}, environmentStages:{}, environmentCrit:0, environmentImmune:[], statusBlocked:false, status:null, effects:[], moves, abilities, used:{}, cooldowns:{}, lastHitType:null };
 }
 function effective(a, stat) { return Math.max(1, Math.round((a.stats[stat]??100) * (1 + clamp((a.stages[stat] || 0)+(a.environmentStages[stat]||0), -10, 10) * .05))); }
 function meets(cond, user, target, state) {
@@ -75,6 +75,7 @@ function action(rule, user, opponent, state, depth) {
     else if (act.type === 'suppress_abilities') { t.effects.push({id:'suppressed',turns:Math.max(1,integer(rule.duration))}); state.log.push(`${t.name}: habilidades anuladas.`); }
     else if (act.type === 'remove_effect') t.effects = t.effects.filter(e=>e.id!==v);
     else if (act.type === 'restrict_moves') t.effects.push({id:'restrict_moves',turns:Math.max(1,integer(rule.duration))});
+    else if (act.type === 'modify_cooldown') { const mid=safe(act.moveId); const before=t.cooldowns[mid]||0; t.cooldowns[mid]=Math.max(0,before+integer(v)); const m=t.moves.find(x=>x.id===mid); state.log.push(`${t.name}: cooldown de ${m?.name||mid} ${integer(v)>=0?'+':''}${integer(v)} → ${t.cooldowns[mid]}.`); }
   }
 }
 function rulesFor(entry, event, user, opponent, state) {
@@ -93,6 +94,7 @@ function rulesFor(entry, event, user, opponent, state) {
 function hit(attacker, defender, move, state) {
   const d = move.definition;
   if (attacker.hp <= 0 || defender.hp <= 0) return;
+  if ((attacker.cooldowns[move.id]||0)>0) { state.log.push(`${attacker.name} no puede usar ${move.name}: quedan ${attacker.cooldowns[move.id]} turnos de cooldown.`); return; }
   if (attacker.effects.some(e=>e.id==='restrict_moves')) { state.log.push(`${attacker.name} tiene ataques restringidos.`); return; }
   rulesFor(null,'on_attack',attacker,defender,state);
   if (d.accuracy !== null && d.accuracy !== undefined && state.random()*100 >= percent(Number(d.accuracy) * (effective(attacker,'accuracy')/100) / (effective(defender,'evasion')/100))) { state.log.push(`${attacker.name} falla ${move.name}.`); return; }
@@ -118,6 +120,7 @@ function hit(attacker, defender, move, state) {
   for (const rule of d.rules || []) if (rule.event === 'manual' && conditionsPass(rule,attacker,defender,state) && chance(rule,state)) action(rule,attacker,defender,state,0);
   rulesFor(null,'on_hit',attacker,defender,state);
   if (damage > 0) rulesFor(null,'on_damage_taken',defender,attacker,state);
+  const baseCd=Math.max(0,integer(d.cooldown||0)); if(baseCd>0){attacker.cooldowns[move.id]=baseCd;state.log.push(`${attacker.name} tiene ${baseCd} ${baseCd===1?'turno restante':'turnos restantes'} para poder volver a usar ${move.name}.`);}
 }
 function tick(actor) { for (const e of actor.effects) if (e.turns > 0) e.turns--; actor.effects = actor.effects.filter(e=>e.permanent || e.turns !== 0); if (actor.status?.turns > 0 && --actor.status.turns === 0) actor.status = null; }
 // Laboratorio de equipos: hasta ocho entidades por lado, una activa (Singles).
@@ -147,7 +150,7 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
   const current=i=>teams[i][active[i]];
   state.current=current;
   const remaining=i=>teams[i].some(a=>a.hp>0);
-  const summary=p=>({id:p.id,name:p.name,hp:p.hp,maxHp:p.maxHp,stages:{...p.stages},environmentStages:{...p.environmentStages},environmentCrit:p.environmentCrit,status:p.status,effects:p.effects.map(e=>({...e})),types:p.types});
+  const summary=p=>({id:p.id,name:p.name,hp:p.hp,maxHp:p.maxHp,stages:{...p.stages},environmentStages:{...p.environmentStages},environmentCrit:p.environmentCrit,status:p.status,effects:p.effects.map(e=>({...e})),types:p.types,cooldowns:{...p.cooldowns}});
   const snapshot=(round)=>state.timeline.push({round,left:summary(current(0)),right:summary(current(1)),weather:state.weather,field:state.field,scenario:state.scenario,teams:teams.map(t=>t.map(summary))});
   const enter=i=>rulesFor(null,'on_enter',current(i),current(1-i),state);
   const switchTo=(i,index,forced=false)=>{
@@ -172,8 +175,9 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
     if(requested){const m=a.moves.find(m=>m.id===requested);if(!m)throw Error('El ataque '+requested+' no pertenece a '+a.name+'.');return m;}
     // Selección aleatoria entre ataques utilizables. Nunca priorizar un ataque
     // ofensivo completamente inmune cuando existe una alternativa útil.
-    const useful=a.moves.filter(m=>m.definition.category==='status'||Number(m.definition.power)<=0||!opponent.types.some(t=>state.chart?.[m.definition.type]?.[t]==='inmune'));
-    const pool=useful.length?useful:a.moves;
+    const available=a.moves.filter(m=>(a.cooldowns[m.id]||0)<=0); if(!available.length)throw Error(a.name+' no tiene movimientos disponibles por cooldown.');
+    const useful=available.filter(m=>m.definition.category==='status'||Number(m.definition.power)<=0||!opponent.types.some(t=>state.chart?.[m.definition.type]?.[t]==='inmune'));
+    const pool=useful.length?useful:available;
     return pool[Math.floor(random()*pool.length)];
   };
   enter(0);enter(1);
@@ -208,6 +212,7 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
         for(const i of [0,1]){const a=current(i);if(a.hp<=0||immune(a,kind)||!matches(a,e)||!chance(e,state))continue;
           if(e.type==='damage_percent'){const amount=e.value===0?0:Math.max(1,integer(a.maxHp*e.value/100));a.hp=Math.max(0,a.hp-amount);state.log.push(entry.name+': '+a.name+' pierde '+amount+' PS ('+e.value+' %).');}
           else if(e.type==='heal_percent'){const amount=integer(a.maxHp*e.value/100);a.hp=Math.min(a.maxHp,a.hp+amount);state.log.push(entry.name+': '+a.name+' recupera '+amount+' PS ('+e.value+' %).');}
+          else if(e.type==='cooldown_change'){const before=a.cooldowns[e.moveId]||0;a.cooldowns[e.moveId]=Math.max(0,before+integer(e.value));const m=a.moves.find(x=>x.id===e.moveId);state.log.push(entry.name+': cooldown de '+(m?.name||e.moveId)+' en '+a.name+' '+(e.value>=0?'+':'')+e.value+' → '+a.cooldowns[e.moveId]+'.');}
           else if(e.type==='remove_status')a.status=null;
           else if(e.type==='block_status'){a.status=null;a.statusBlocked=true;}
         }
@@ -218,6 +223,7 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
   let played=0;
   for(let round=1;round<=turns&&remaining(0)&&remaining(1);round++){
     played=round;state.log.push('— Ronda '+round+' —');
+    if(round>1){for(const t of teams)for(const a of t)for(const [mid,n] of Object.entries(a.cooldowns)){if(n<=0)continue;const next=n-1;a.cooldowns[mid]=next;const m=a.moves.find(x=>x.id===mid);state.log.push(next>0?`${a.name} tiene ${next} ${next===1?'turno restante':'turnos restantes'} para poder volver a usar ${m?.name||mid}.`:`${a.name} puede volver a usar ${m?.name||mid}.`);}}
     autoReplace(0);autoReplace(1);
     const orders=[parseOrder(leftOrders,round,'izquierda',leftMove),parseOrder(rightOrders,round,'derecha',rightMove)];
     // Cambios declarados se resuelven antes de los ataques, por orden de Velocidad.

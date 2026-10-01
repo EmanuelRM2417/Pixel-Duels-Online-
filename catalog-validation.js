@@ -2,11 +2,11 @@
 export const EVENTS = ['on_enter','turn_start','turn_end','round_end','on_attack','on_hit','on_damage_taken','manual'];
 export const CONDITIONS = ['always','hp_below','hp_above','weather_is','field_is','has_status','has_type','was_hit_by_type','stat_below'];
 export const TARGETS = ['self','target','all_active'];
-export const ACTIONS = ['damage','heal','stat_change','apply_status','remove_status','apply_effect','remove_effect','set_weather','set_field','set_scenario','environment_immunity','prevent_environment','suppress_abilities','restrict_moves'];
+export const ACTIONS = ['damage','heal','stat_change','apply_status','remove_status','apply_effect','remove_effect','set_weather','set_field','set_scenario','environment_immunity','prevent_environment','suppress_abilities','restrict_moves','modify_cooldown'];
 const TYPES = ['fuego','planta','roca','hielo','rayo','metal','guerra','mente','encanto','espectro','divinidad','luz','oscuridad','viento','dragon','agua','veneno','tecnologia','agilidad','espiritu'];
 const STATS = ['attack','defense','specialAttack','specialDefense','speed','accuracy','evasion','criticalChance'];
 const ENV_CATS=['weathers','fields','scenarios'];
-const ENV_ACTIONS=['damage_percent','heal_percent','stat_change','critical_change','remove_status','block_status'];
+const ENV_ACTIONS=['damage_percent','heal_percent','stat_change','critical_change','remove_status','block_status','cooldown_change'];
 const slug = v => typeof v === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(v) && v.length <= 60;
 const numeric = v => typeof v === 'number' && Number.isFinite(v);
 const within = (v,a,b) => numeric(v) && v>=a && v<=b;
@@ -46,6 +46,7 @@ export function validateRules(definition,category){
   if(a.type==='stat_change' && (!STATS.includes(a.stat)||!(v!==''&&Number.isInteger(Number(v))&&Number(v)>=-10&&Number(v)<=10))) fail(at+': elegí estadística y cambio entero entre −10 y +10 niveles.');
   if(['apply_status','apply_effect','remove_effect','set_weather','set_field','set_scenario'].includes(a.type)&&!slug(v)) fail(at+': la acción necesita un ID válido.');
   if(['environment_immunity','prevent_environment'].includes(a.type) && !['weathers','fields','scenarios','all'].includes(v))fail(at+': inmunidad debe indicar clima, campo, escenario o todos.');
+  if(a.type==='modify_cooldown'&&(!slug(a.moveId)||!Number.isInteger(Number(v))||Number(v)<-50||Number(v)>50))fail(at+': modificar cooldown requiere ID de movimiento y cambio entero entre −50 y +50 turnos.');
   if(a.type==='apply_effect' && category==='effects' && r.duration!==0) fail(at+': la duración de un efecto reutilizable manual no está implementada; elegí 0.');
   if(['set_weather','set_field','set_scenario'].includes(a.type) && r.target==='all_active') fail(at+': el clima/campo es global, no admite «ambas entidades» como objetivo.');
   if(r.event==='manual' && category==='abilities') fail(at+': el evento manual no se ejecuta automáticamente en habilidades; usá un evento de habilidad.');
@@ -55,7 +56,7 @@ export function validateDefinition(category,d){
  if(!d || typeof d!=='object'||Array.isArray(d)) fail('Definición inválida.');
  if(category==='moves'){
   if(!TYPES.includes(d.type)||!['physical','special','status'].includes(d.category)||!['global','unique'].includes(d.kind)) fail('Ataque: elegí clase, tipo y categoría.');
-  if(!within(d.power,0,500)||!within(d.accuracy,0,100)||!within(d.criticalChance,0,50)||!Number.isInteger(d.priority)||d.priority< -5||d.priority>5) fail('Ataque: potencia 0–500, precisión 0–100, crítico 0–50, prioridad −5 a +5.');
+  if(!within(d.power,0,500)||!within(d.accuracy,0,100)||!within(d.criticalChance,0,50)||!Number.isInteger(d.priority)||d.priority< -5||d.priority>5||!Number.isInteger(d.cooldown??0)||(d.cooldown??0)<0||(d.cooldown??0)>50) fail('Ataque: potencia 0–500, precisión 0–100, crítico 0–50, prioridad −5 a +5 y cooldown 0–50.');
  }
  if(category==='abilities'&&!['global','unique'].includes(d.kind)) fail('Habilidad: elegí global o exclusiva.');
  if(category==='entities'){
@@ -81,8 +82,9 @@ export function validateDefinition(category,d){
    if(e.type==='stat_change'&&(!STATS.includes(e.stat)||!Number.isInteger(e.value)||e.value< -10||e.value>10))fail(at+': estadística y niveles enteros entre −10 y +10.');
    if(e.type==='critical_change'&&(!Number.isInteger(e.value)||e.value< -10||e.value>10))fail(at+': crítico entre −10 y +10 niveles.');
    if(['remove_status','block_status'].includes(e.type)&&e.value!==undefined)fail(at+': esta acción no lleva valor.');
+   if(e.type==='cooldown_change'&&(!slug(e.moveId)||!Number.isInteger(e.value)||e.value<-50||e.value>50))fail(at+': cooldown requiere movimiento y cambio entero entre −50 y +50 turnos.');
    if(['remove_status','block_status'].includes(e.type)&&e.timing!=='round_end'&&e.timing!=='continuous')fail(at+': momento inválido.');
-   if(['damage_percent','heal_percent'].includes(e.type)&&e.timing!=='round_end')fail(at+': daño y curación se aplican al final de ronda.');
+   if(['damage_percent','heal_percent','cooldown_change'].includes(e.type)&&e.timing!=='round_end')fail(at+': daño y curación se aplican al final de ronda.');
    if(['stat_change','critical_change'].includes(e.type)&&e.timing!=='continuous')fail(at+': las estadísticas se modifican mientras esté activo.');
   }
  }
