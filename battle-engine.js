@@ -176,9 +176,20 @@ export function simulate({left,right,leftTeam,rightTeam,chart,catalog,turns=10,r
   const remaining=i=>teams[i].some(a=>a.hp>0);
   const summary=p=>{ensureActorRuntime(p);const core=['attack','defense','specialAttack','specialDefense','speed'];return ({id:p.id,name:p.name,hp:p.hp,maxHp:p.maxHp,baseStats:Object.fromEntries(core.map(k=>[k,p.stats[k]])),currentStats:Object.fromEntries(core.map(k=>[k,effective(p,k)])),stages:{...p.stages},environmentStages:{...p.environmentStages},statusStages:{...(p.statusStages||{})},statSources:[...(p.statSources||[])],environmentCrit:p.environmentCrit,status:p.status,effects:p.effects.map(e=>({...e})),types:p.types,cooldowns:{...p.cooldowns}})};
   const snapshot=(round)=>state.timeline.push({round,left:summary(current(0)),right:summary(current(1)),weather:state.weather,field:state.field,scenario:state.scenario,teams:teams.map(t=>t.map(summary))});
-  const enter=i=>rulesFor(null,'on_enter',current(i),current(1-i),state);
+  const resetEntryAbilityUsage=a=>{
+    ensureActorRuntime(a);
+    for(const ability of a.abilities||[])for(const [idx,rule] of (ability?.definition?.rules||[]).entries())if(rule.event==='on_enter')delete a.used[ability.id+':'+idx];
+  };
+  const enter=i=>{const a=current(i);resetEntryAbilityUsage(a);rulesFor(null,'on_enter',a,current(1-i),state);};
+  const resetSwitchStages=a=>{
+    ensureActorRuntime(a);
+    a.stages={};
+    a.statSources=[];
+  };
   const switchTo=(i,index,forced=false)=>{
     if(!Number.isInteger(index)||index<0||index>=teams[i].length||index===active[i]||teams[i][index].hp<=0)throw Error('Cambio inválido en equipo '+(i===0?'izquierdo':'derecho')+'.');
+    const leaving=current(i);
+    resetSwitchStages(leaving);
     active[i]=index;state.log.push((forced?'Relevo automático: ':'Cambio: ')+current(i).name+' entra al campo.');enter(i);state.refreshEnvironment?.();
   };
   const autoReplace=i=>{
