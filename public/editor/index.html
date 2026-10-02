@@ -249,6 +249,14 @@
     .battle-command-left{left:3%;bottom:2%;display:grid!important;grid-template-columns:72px!important;grid-template-rows:58px 58px;gap:7px}.battle-command-left button{width:72px!important;height:58px!important}.battle-actions{right:3%;bottom:2%;width:min(500px,58%);padding:8px}.battle-move-grid{display:grid!important;grid-template-columns:1fr 1fr!important;grid-template-rows:1fr 1fr;gap:7px}.battle-move{min-height:58px!important}.battle-move.show-info small{font-size:10px;line-height:1.25}.battle-move.chosen{outline:2px solid #a79cff;opacity:1!important}.battle-hp-fill{transition:width 1.15s linear!important}@media(max-width:700px){.battle-command-left{left:2%;grid-template-columns:58px!important;grid-template-rows:52px 52px}.battle-command-left button{width:58px!important;height:52px!important}.battle-actions{right:2%;width:70%}.battle-move{min-height:54px!important;padding:6px 8px!important}}
 
     .catalog-filter-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.catalog-filter-grid label{margin:0}.catalog-tabs{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 16px}.catalog-tab{margin:0;padding:8px 11px;border-radius:999px;background:#2a2d42;border:1px solid #474a66;color:#cfd1e7;font-size:12px}.catalog-tab.active{background:#514a7a;border-color:#9688e8;color:white}.tag-input{display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid #4a4b66;border-radius:8px;background:#151727}.tag-chip{display:inline-flex;gap:5px;align-items:center;background:#383452;border-radius:999px;padding:4px 8px;font-size:11px}.tag-chip button{margin:0;padding:0 3px;background:transparent}.type-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px}.type-choice{display:flex!important;align-items:center;gap:6px;padding:7px!important;margin:0!important;border:1px solid #43455e;border-radius:9px;background:#191b2b;font-size:11px}.type-choice input{width:auto!important}.type-choice img{width:22px;height:22px;object-fit:contain;image-rendering:pixelated}.reference-search{position:relative}.reference-search input{padding-right:32px}.reference-results{position:absolute;z-index:30;left:0;right:0;top:100%;max-height:210px;overflow:auto;background:#151727;border:1px solid #555875;border-radius:8px;box-shadow:0 10px 25px #0008}.reference-results button{width:100%;margin:0;text-align:left;background:transparent;border-radius:0;padding:9px 10px}.reference-results button:hover{background:#343852}.reference-selected{font-size:11px;color:#aaaed0;margin-top:4px}.catalog-list button .meta{display:block;font-size:10px;color:#9ba0bf;margin-top:3px}.stat-total-note{font-size:11px;color:#aaaed0;margin-top:8px}.icon-sheet-cell{display:flex;flex-direction:column;gap:4px;align-items:center;font-size:10px;color:#b9bdd5}.icon-sheet-cell canvas{width:48px;height:48px;image-rendering:pixelated;border:1px solid #45475f;border-radius:7px;background:#151727}.condition-extra-hidden{display:none!important}
+  
+    .type-summary-table { width:100%; border-collapse:collapse; min-width:900px; }
+    .type-summary-table th,.type-summary-table td { padding:8px 10px; border:1px solid #3d4057; text-align:center; white-space:nowrap; }
+    .type-summary-table th:first-child,.type-summary-table td:first-child { position:sticky; left:0; background:#1c1e2b; text-align:left; z-index:1; }
+    .icon-sheet-grid { display:grid; grid-template-columns:repeat(5,minmax(110px,1fr)); gap:10px; width:100%; margin-top:10px; }
+    .icon-sheet-cell { display:grid; gap:7px; align-content:start; padding:8px; border:1px solid #3d4057; border-radius:10px; background:#191b27; }
+    .icon-sheet-cell canvas { width:100%; aspect-ratio:1/1; object-fit:contain; image-rendering:pixelated; background:rgba(255,255,255,.03); }
+    .icon-sheet-cell select { width:100%; }
   </style>
 </head>
 
@@ -379,6 +387,10 @@
     <div class="type-table-scroll" tabindex="0" aria-label="Tabla de tipos desplazable horizontal y verticalmente">
       <table class="type-table" id="typeChartTable" aria-label="Relaciones de ataque contra defensa"></table>
     </div>
+    <h3>Resumen por tipo</h3>
+    <div class="type-table-scroll" tabindex="0" aria-label="Resumen ofensivo y defensivo por tipo">
+      <table class="type-summary-table" id="typeSummaryTable"></table>
+    </div>
     <p id="typeChartStatus" role="status">Cargando tabla de tipos...</p>
     <button type="button" id="resetTypeChart" disabled>Restablecer todas las casillas a neutral</button>
     <p class="help">La tabla se guarda automáticamente como borrador privado. Una inmunidad defensiva anula el daño incluso si la entidad tiene otros tipos.</p>
@@ -394,7 +406,7 @@
       <div>
         <label for="catalogCategory">Categoría</label>
         <select id="catalogCategory">
-          <option value="entities">Personajes</option><option value="abilities">Habilidades</option><option value="moves">Movimientos</option><option value="statuses">Alteraciones de estado</option><option value="effects">Plantillas de efectos</option>
+          <option value="entities">Personajes</option><option value="abilities">Habilidades</option><option value="moves">Movimientos</option><option value="statuses">Alteraciones de estado</option>
           <option value="weathers">Climas</option><option value="fields">Campos</option>
           <option value="scenarios">Escenarios</option>
         </select>
@@ -417,17 +429,13 @@
         <label for="catalogDescription">Descripción</label>
         <textarea id="catalogDescription" rows="3" placeholder="¿Qué hace?"></textarea>
         <div class="builder" id="catalogBuilder">
-          <h3>Configuración visual</h3>
-          <p class="builder-note">Cada casilla se elige individualmente. No se completan automáticamente los valores de las reglas. <strong>Solo aparecen operaciones interpretadas por el laboratorio actual.</strong> Los controles que no aplican a la opción elegida se ocultan automáticamente. Consultá la guía de cada casilla debajo.</p><details open><summary>¿Qué significa cada casilla?</summary><div id="mechanicHelp" class="builder-note"></div></details>
           <div id="builderBasics"></div>
-          <div id="templateTools" class="builder-note"><strong>Plantillas de efectos</strong><div class="builder-grid"><label>Buscar plantilla<select id="templateSelect"></select></label><label>&nbsp;<button type="button" id="templateInsert">Usar plantilla</button></label></div><small>Las plantillas se eligen por nombre. Podés modificar la copia/referencia dentro del contenido sin escribir IDs.</small></div>
-          <div id="environmentEditor" hidden><p class="environment-intro">El entorno se activa mediante un ataque o habilidad, dura 5 rondas y afecta a las entidades activas. Agregá únicamente los efectos que querás. Los modificadores de estadísticas se mantienen sin acumularse por ronda.</p><div id="environmentEffects"></div><button type="button" id="environmentAdd">+ Añadir efecto al entorno</button></div><div id="builderRules"></div>
+          <div id="environmentEditor" hidden><div id="environmentEffects"></div><button type="button" id="environmentAdd">+ Añadir efecto al entorno</button></div><div id="builderRules"></div>
           <button type="button" id="builderAddRule">+ Agregar regla</button>
         </div>
         <button type="button" id="advancedToggle" aria-expanded="false">Mostrar JSON avanzado</button>
         <label for="catalogDefinition" id="advancedLabel" hidden>Configuración JSON (avanzado)</label>
         <textarea id="catalogDefinition" spellcheck="false">{}</textarea>
-        <p class="builder-note">Las referencias a movimientos, habilidades, estados y entornos se buscan por nombre. El identificador técnico se guarda internamente para mantener vínculos estables.</p>
         <div class="catalog-actions">
           <button type="button" id="catalogSave">Guardar elemento</button>
           <button type="button" id="catalogDuplicate" class="secondary-action" disabled>Duplicar como nuevo</button>
@@ -465,7 +473,7 @@
 
   <section class="panel icon-panel" data-studio-view="type-icons" aria-labelledby="typeIconHeading" hidden>
     <h2 id="typeIconHeading">Biblioteca de sprites de tipos</h2>
-    <p class="help">Podés subir cada símbolo por separado o una sola hoja horizontal con los 20 símbolos, en el mismo orden que aparece abajo. Antes de guardar la hoja verás una previsualización de los recortes.</p>
+    <p class="help">Podés subir cada símbolo por separado o importar una hoja de 4 filas × 5 columnas. En la hoja asignás manualmente qué tipo corresponde a cada recorte.</p>
     <div class="icon-upload-layout"><div class="icon-upload-form">
       <label for="iconType">Tipo al que pertenece</label><select id="iconType"></select>
       <label for="iconFile">Imagen PNG (máximo 2 MB)</label><input type="file" id="iconFile" accept="image/png">
@@ -473,9 +481,9 @@
       <div class="icon-preview"><img id="iconPreview" alt="Vista previa del sprite seleccionado" hidden><span id="iconPreviewEmpty">Seleccioná un PNG para ver su vista previa.</span></div>
       <button type="button" id="iconUpload">Guardar sprite del tipo</button>
       <hr style="width:100%;border-color:#3d4057;margin:14px 0">
-      <label for="iconSheetFile">Hoja con los 20 símbolos (PNG horizontal)</label><input type="file" id="iconSheetFile" accept="image/png">
-      <div id="iconSheetPreview" class="icon-gallery"></div>
-      <button type="button" id="iconSheetUpload" disabled>Guardar los 20 recortes</button>
+      <label for="iconSheetFile">Hoja de símbolos (PNG · 4 filas × 5 columnas)</label><input type="file" id="iconSheetFile" accept="image/png">
+      <div id="iconSheetPreview" class="icon-sheet-grid"></div>
+      <button type="button" id="iconSheetUpload" disabled>Guardar recortes asignados</button>
       <p id="iconStatus" role="status">Elegí el tipo y el archivo.</p>
     </div><div><h3>Los 20 tipos</h3><p class="builder-note">Seleccioná una tarjeta para cambiar su sprite. Los iconos guardados se cargan desde R2 privado.</p><div id="typeIconGrid" class="icon-gallery"></div></div></div>
   </section>
@@ -803,6 +811,7 @@ const response = await fetch(
     const chartLabels = { neutral: "Neutral", ineficaz: "Ineficaz", eficaz: "Eficaz", inmune: "Inmune" };
     const typeChartTable = document.getElementById("typeChartTable");
     const typeChartStatus = document.getElementById("typeChartStatus");
+    const typeSummaryTable = document.getElementById("typeSummaryTable");
     const resetTypeChart = document.getElementById("resetTypeChart");
     const paintButtons = [...document.querySelectorAll("[data-paint]")];
     let currentPaint = "neutral";
@@ -879,6 +888,7 @@ const response = await fetch(
             typeChart[attack][defense] = currentPaint;
             cell.dataset.value = currentPaint;
             describe();
+            renderTypeSummary();
             scheduleChartSave();
           });
           td.append(cell);
@@ -887,6 +897,17 @@ const response = await fetch(
         body.append(row);
       }
       typeChartTable.replaceChildren(head, body);
+      renderTypeSummary();
+    }
+
+    function countRelations(values){const counts={neutral:0,eficaz:0,ineficaz:0,inmune:0};for(const v of values)counts[v]=(counts[v]||0)+1;return counts;}
+    function renderTypeSummary(){
+      if(!typeChart)return;
+      const head=document.createElement('thead'),hr=document.createElement('tr');
+      for(const label of ['Tipo','Ofensiva · Neutralidades','Ofensiva · Efectividades','Ofensiva · Inefectividades','Ofensiva · Inmunidades','Defensiva · Neutralidades','Defensiva · Efectividades recibidas','Defensiva · Inefectividades recibidas','Defensiva · Inmunidades']){const th=document.createElement('th');th.textContent=label;hr.append(th);}head.append(hr);
+      const body=document.createElement('tbody');
+      for(const [id,name] of chartTypes){const off=countRelations(chartTypes.map(([def])=>typeChart[id][def]));const deff=countRelations(chartTypes.map(([atk])=>typeChart[atk][id]));const tr=document.createElement('tr');const vals=[name,off.neutral,off.eficaz,off.ineficaz,off.inmune,deff.neutral,deff.eficaz,deff.ineficaz,deff.inmune];for(const v of vals){const td=document.createElement('td');td.textContent=String(v);tr.append(td);}body.append(tr);}
+      typeSummaryTable.replaceChildren(head,body);
     }
 
     async function loadTypeChart() {
@@ -1029,12 +1050,12 @@ const response = await fetch(
     const eventOptions = [["","Elegir evento…"],["on_enter","Al entrar al campo"],["turn_start","Inicio de turno"],["turn_end","Final de turno"],["round_end","Final de ronda"],["on_attack","Al atacar"],["on_hit","Al acertar"],["on_damage_taken","Al recibir daño"],["manual","Al usar el ataque / efecto manual"],["on_status","Mientras tenga el estado (automático)"]];
     const conditionOptions = [["","Elegir condición…"],["always","Siempre"],["hp_below","PS por debajo de (%)"],["hp_above","PS por encima de (%)"],["weather_is","Clima activo"],["field_is","Campo activo"],["has_status","Tiene alteración de estado"],["has_type","Tiene tipo"],["was_hit_by_type","Recibió tipo"],["stat_below","Velocidad actual por debajo de"]];
     const targetOptions = [["","Elegir objetivo…"],["self","Usuario"],["target","Rival / objetivo"],["all_active","Ambas entidades activas"]];
-    const actionOptions = [["","Elegir acción…"],["damage","Causar daño (% PS máximos)"],["heal","Recuperar PS (% PS máximos)"],["heal_from_damage","Recuperar PS según daño infligido (%)"],["stat_change","Modificar niveles de estadística"],["apply_status","Aplicar alteración de estado"],["remove_status","Eliminar estado"],["apply_effect","Aplicar plantilla de efecto"],["remove_effect","Eliminar efecto temporal"],["set_weather","Activar clima"],["set_field","Activar campo"],["set_scenario","Activar escenario"],["environment_immunity","Inmunidad a entorno (weathers / fields / scenarios / all)"],["prevent_environment","Impedir activar entorno (weathers / fields / scenarios / all)"],["suppress_abilities","Anular habilidades"],["restrict_moves","Restringir movimientos"],["modify_active_cooldowns","Modificar cooldowns activos del objetivo"],["cooldown_on_use","Modificar cooldown al usar movimientos"],["immunity","Inmunidad a daño"]];
+    const actionOptions = [["","Elegir acción…"],["damage","Causar daño (% PS máximos)"],["heal","Recuperar PS (% PS máximos)"],["heal_from_damage","Recuperar PS según daño infligido (%)"],["stat_change","Modificar niveles de estadística"],["apply_status","Aplicar alteración de estado"],["remove_status","Eliminar estado"],["set_weather","Activar clima"],["set_field","Activar campo"],["set_scenario","Activar escenario"],["environment_immunity","Inmunidad a entorno (weathers / fields / scenarios / all)"],["prevent_environment","Impedir activar entorno (weathers / fields / scenarios / all)"],["suppress_abilities","Anular habilidades"],["restrict_moves","Restringir movimientos"],["modify_active_cooldowns","Modificar cooldowns activos del objetivo"],["cooldown_on_use","Modificar cooldown al usar movimientos"],["immunity","Inmunidad a daño"]];
     const categoryBasics = {
       entities: [["tags","Etiquetas","tags"],["spriteId","Sprite","text"],["types","Tipos (1–3)","types"],["hp","PS base","number"],["attack","Ataque base","number"],["defense","Defensa base","number"],["specialAttack","Ataque especial base","number"],["specialDefense","Defensa especial base","number"],["speed","Velocidad base","number"],["globalAbilityId","Habilidad global","ref:abilities:global"],["uniqueAbilityId","Habilidad exclusiva","ref:abilities:unique"],["uniqueMoveId","Movimiento exclusivo","ref:moves:unique"],["move2Id","Movimiento 2","ref:moves:global"],["move3Id","Movimiento 3","ref:moves:global"],["move4Id","Movimiento 4","ref:moves:global"]],
       moves: [["tags","Etiquetas","tags"],["kind","Clase del movimiento","abilityKind"],["type","Tipo del movimiento","type"],["category","Categoría","category"],["power","Potencia","number"],["accuracy","Precisión (%)","number"],["criticalChance","Probabilidad crítico (%)","number"],["priority","Prioridad","number"],["cooldown","Cooldown base (turnos)","number"]],
       abilities: [["tags","Etiquetas","tags"],["kind","Clase de habilidad","abilityKind"]],
-      effects: [], weathers: [], fields: [], scenarios: [["imageId","Recurso visual","text"]],
+      weathers: [], fields: [], scenarios: [["imageId","Recurso visual","text"]],
       statuses: [["duration","Duración predeterminada (rondas)","number"],["statusFilterMode","Filtro por tipo","statusFilterMode"],["statusFilterTypes","Tipos del filtro","typeMulti"]]
     };
     const fieldExplanations = {
@@ -1043,18 +1064,6 @@ const response = await fetch(
     const ruleExplanations = {
       event:'Momento en que el motor evalúa la regla. «Al usar» se evalúa al ejecutar un ataque o un efecto manual; los demás eventos se evalúan para habilidades.', conditionType:'Primera condición. «Siempre» no necesita valor. Los porcentajes de PS se comparan de forma estricta (menor/mayor, no igual).', conditionValue:'Solo aparece cuando la condición necesita un número. Cuando la condición referencia contenido, se muestra un buscador por nombre; para tipos se muestran los símbolos.', target:'Entidad que recibe la acción. En Singles «ambas entidades» afecta a los dos participantes. Clima y campo se aplican globalmente, independientemente del objetivo.', actionType:'Operación concreta. Solo se muestran acciones que el motor actual reconoce; no implica que el sistema competitivo esté terminado.', actionValue:'Solo aparece cuando la acción necesita una cantidad. Las referencias a contenido se eligen aparte mediante búsqueda por nombre.', operator:'Combina la condición principal con las adicionales en orden de arriba abajo. Y requiere ambas; O requiere una. No hay paréntesis anidados.', negate:'Invierte el resultado de todas las condiciones de esta regla.', stat:'Estadística modificada si elegiste «modificar niveles». Los PS no admiten niveles.', chance:'Probabilidad independiente de activación de esta regla, entre 0 y 100. Es obligatoria: elegí 0 si nunca debe activarse.', duration:'Duración en rondas de la acción, entre 0 y 9999. Para estados y efectos temporales 0 no significa indefinido; revisá la guía de limitaciones.', limit:'Máximo de activaciones por habilidad durante la prueba. 0 significa sin límite; no se reinicia al cambiar de ronda.'
     };
-    function showMechanicHelp(){
-      const el=document.getElementById('mechanicHelp'); if(!el)return;
-      el.replaceChildren();
-      const intro=document.createElement('p');intro.textContent=environmentCategories.includes(catalogCategory.value)?'Este entorno dura siempre 5 rondas. No tiene evento, condición, objetivo ni límite de activaciones. Los efectos se aplican a todos los activos salvo filtros por tipo o inmunidades definidas en habilidades.':'Una regla = un evento + una condición + un objetivo + una acción. Agregá otra regla para encadenar otra acción. Las condiciones adicionales usan Y/O/NO de izquierda a derecha; no hay agrupación anidada.';el.append(intro);
-      const all=environmentCategories.includes(catalogCategory.value)?fieldExplanations:{...fieldExplanations,...ruleExplanations};
-      for(const [key,description] of Object.entries(all)){
-        const field=categoryBasics[catalogCategory.value]?.find(x=>x[0]===key);
-        if(field||Object.hasOwn(ruleExplanations,key)){
-          const p=document.createElement('p');const b=document.createElement('strong');b.textContent=(field?.[1]||({event:'Evento',conditionType:'Condición',conditionValue:'Valor de condición',target:'Objetivo',actionType:'Acción',actionValue:'Valor de acción',operator:'Operador Y/O',negate:'Negar condición',stat:'Estadística',chance:'Probabilidad',duration:'Duración',limit:'Límite de activaciones'}[key]||key))+': ';p.append(b,document.createTextNode(description));el.append(p);
-        }
-      }
-    }
     function optionSelect(options, value) {
       const select = document.createElement("select");
       for (const [id,label] of options) { const option = new Option(label,id); select.add(option); }
@@ -1125,10 +1134,10 @@ const response = await fetch(
       const wrapper = document.createElement("label"); wrapper.textContent = label;
       control.dataset.ruleKey = key; wrapper.append(control); grid.append(wrapper); return control;
     }
-    function ruleReferenceCategory(type){return {apply_status:'statuses',apply_effect:'effects',remove_effect:'effects',set_weather:'weathers',set_field:'fields',set_scenario:'scenarios'}[type]||'';}
+    function ruleReferenceCategory(type){return {apply_status:'statuses',set_weather:'weathers',set_field:'fields',set_scenario:'scenarios'}[type]||'';}
     function addRule(rule = {}) {
       const row=document.createElement('div');row.className='builder-row';const grid=document.createElement('div');grid.className='builder-grid';
-      const isStatus=catalogCategory.value==='statuses',isMove=catalogCategory.value==='moves',isEffect=catalogCategory.value==='effects';
+      const isStatus=catalogCategory.value==='statuses',isMove=catalogCategory.value==='moves';
       const event=labeledControl(grid,'Evento',optionSelect(eventOptions,isStatus?'on_status':isMove||isEffect?'manual':rule.event??''),'event');
       const conditionType=labeledControl(grid,'Condición',optionSelect(conditionOptions,isStatus||isMove?'always':rule.condition?.type??''),'conditionType');
       const conditionValue=labeledControl(grid,'Valor de condición',fieldControl('text',rule.condition?.value),'conditionValue');
@@ -1200,8 +1209,8 @@ const response = await fetch(
       return result;
     });}
     function renderBuilder(definition) {
-      loadedDefinition = structuredClone(definition);refreshTemplateTools();
-      if(catalogCategory.value==='statuses'&&definition.typeFilter){definition={...definition,statusFilterMode:definition.typeFilter.mode,statusFilterTypes:definition.typeFilter.types};}addBasicFields(definition); showMechanicHelp();
+      loadedDefinition = structuredClone(definition);
+      if(catalogCategory.value==='statuses'&&definition.typeFilter){definition={...definition,statusFilterMode:definition.typeFilter.mode,statusFilterTypes:definition.typeFilter.types};}addBasicFields(definition);
       const isEnvironment=environmentCategories.includes(catalogCategory.value);
       environmentEditor.hidden=!isEnvironment;document.getElementById('builderAddRule').hidden=isEnvironment;
       environmentEffects.replaceChildren();
@@ -1446,7 +1455,7 @@ const response = await fetch(
 
     // Navegación y recursos visuales: no cambian la lógica del catálogo.
     const viewTitles = {home:['INICIO','Tu espacio de creación','Sprites de entidades y notas privadas.'],types:['TIPOS','Tabla de efectividades','Definí cada relación ofensiva y defensiva.'],'type-icons':['RECURSOS','Sprites de tipos','Cargá y reemplazá los iconos pixel art de los 20 tipos.'],catalog:['CATÁLOGO','Editor de contenido','Elegí cada parámetro y guardá en el servidor privado.'],sim:['PRUEBAS','Laboratorio de batalla','Probá entidades y reglas compatibles con el motor actual.']};
-    const categoryTitles={entities:'Personajes',moves:'Movimientos',abilities:'Habilidades',effects:'Plantillas de efectos',statuses:'Estados alterados',weathers:'Climas',fields:'Campos',scenarios:'Escenarios'};
+    const categoryTitles={entities:'Personajes',moves:'Movimientos',abilities:'Habilidades',statuses:'Estados alterados',weathers:'Climas',fields:'Campos',scenarios:'Escenarios'};
     function showStudioView(view,category){
       if(view!=='catalog' && catalogDirty && !confirmDiscard())return;
       if(view==='catalog'&&category&&catalogCategory.value!==category){
@@ -1487,10 +1496,23 @@ const response = await fetch(
       try{const r=await fetch('/editor-api/type-icons/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'image/png'},body:file});const d=await r.json();if(!r.ok)throw Error(d.error||'No se pudo guardar');iconStatus.textContent='Sprite de '+id+' guardado ✓';await loadTypeIcons();iconStatus.textContent='Sprite de '+id+' guardado ✓';}
       catch(e){iconStatus.textContent='Error: '+e.message}finally{button.disabled=false}
     });
-    // Importación opcional de una sola hoja horizontal con los 20 símbolos.
+    // Importación de hoja 3 × 5. Cada recorte se asigna manualmente a un tipo.
     const iconSheetFile=document.getElementById('iconSheetFile'),iconSheetPreview=document.getElementById('iconSheetPreview'),iconSheetUpload=document.getElementById('iconSheetUpload');let sheetBlobs=[];
-    iconSheetFile.addEventListener('change',async()=>{sheetBlobs=[];iconSheetPreview.replaceChildren();iconSheetUpload.disabled=true;const file=iconSheetFile.files[0];if(!file)return;if(file.type!=='image/png'){iconStatus.textContent='La hoja debe ser PNG.';return;}const url=URL.createObjectURL(file);try{const img=new Image();await new Promise((ok,bad)=>{img.onload=ok;img.onerror=bad;img.src=url});if(img.naturalWidth<chartTypes.length||img.naturalHeight<1)throw Error('La hoja es demasiado pequeña.');const cellW=img.naturalWidth/chartTypes.length;if(Math.abs(cellW-Math.round(cellW))>.001)throw Error('El ancho debe dividirse exactamente entre 20.');for(let i=0;i<chartTypes.length;i++){const [id,name]=chartTypes[i],c=document.createElement('canvas');c.width=Math.round(cellW);c.height=img.naturalHeight;const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.drawImage(img,i*cellW,0,cellW,img.naturalHeight,0,0,c.width,c.height);const blob=await new Promise(ok=>c.toBlob(ok,'image/png'));sheetBlobs.push({id,name,blob});const card=document.createElement('div');card.className='icon-sheet-cell';const preview=document.createElement('canvas');preview.width=c.width;preview.height=c.height;preview.getContext('2d').drawImage(c,0,0);card.append(preview,document.createTextNode(name));iconSheetPreview.append(card);}iconSheetUpload.disabled=false;iconStatus.textContent='Previsualización lista. Verificá el orden antes de guardar.';}catch(e){iconStatus.textContent='Error: '+e.message}finally{URL.revokeObjectURL(url)}});
-    iconSheetUpload.addEventListener('click',async()=>{if(sheetBlobs.length!==chartTypes.length)return;iconSheetUpload.disabled=true;try{let done=0;for(const item of sheetBlobs){iconStatus.textContent=`Guardando símbolos ${done+1}/20…`;const r=await fetch(typeIconUrl(item.id),{method:'PUT',headers:{'Content-Type':'image/png'},body:item.blob});if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d.error||'No se pudo guardar '+item.name)}done++;}iconStatus.textContent='Los 20 símbolos se guardaron ✓';await loadTypeIcons();}catch(e){iconStatus.textContent='Error: '+e.message}finally{iconSheetUpload.disabled=false}});
+    function sheetTypeSelect(index){
+      const select=document.createElement('select');select.dataset.sheetType=String(index);select.add(new Option('Sin asignar',''));
+      for(const [id,name] of chartTypes)select.add(new Option(name,id));
+      select.addEventListener('change',()=>{sheetBlobs[index].id=select.value;iconSheetUpload.disabled=!sheetBlobs.some(x=>x.id);});return select;
+    }
+    iconSheetFile.addEventListener('change',async()=>{
+      sheetBlobs=[];iconSheetPreview.replaceChildren();iconSheetUpload.disabled=true;const file=iconSheetFile.files[0];if(!file)return;if(file.type!=='image/png'){iconStatus.textContent='La hoja debe ser PNG.';return;}const url=URL.createObjectURL(file);
+      try{const img=new Image();await new Promise((ok,bad)=>{img.onload=ok;img.onerror=bad;img.src=url});
+        if(img.naturalWidth<5||img.naturalHeight<3)throw Error('La hoja es demasiado pequeña.');
+        const cellW=img.naturalWidth/5,cellH=img.naturalHeight/4;if(Math.abs(cellW-Math.round(cellW))>.001||Math.abs(cellH-Math.round(cellH))>.001)throw Error('El ancho debe dividirse entre 5 y el alto entre 4 exactamente.');
+        for(let row=0;row<4;row++)for(let col=0;col<5;col++){const i=row*5+col,c=document.createElement('canvas');c.width=Math.round(cellW);c.height=Math.round(cellH);const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.drawImage(img,col*cellW,row*cellH,cellW,cellH,0,0,c.width,c.height);const blob=await new Promise(ok=>c.toBlob(ok,'image/png'));sheetBlobs.push({id:'',blob});const card=document.createElement('div');card.className='icon-sheet-cell';const preview=document.createElement('canvas');preview.width=c.width;preview.height=c.height;preview.getContext('2d').drawImage(c,0,0);const label=document.createElement('strong');label.textContent=`Fila ${row+1} · Columna ${col+1}`;card.append(preview,label,sheetTypeSelect(i));iconSheetPreview.append(card);}
+        iconStatus.textContent='20 recortes listos. Asigná manualmente el tipo de cada símbolo antes de guardarlo.';
+      }catch(e){iconStatus.textContent='Error: '+e.message}finally{URL.revokeObjectURL(url)}
+    });
+    iconSheetUpload.addEventListener('click',async()=>{const assigned=sheetBlobs.filter(x=>x.id);if(!assigned.length)return;const ids=assigned.map(x=>x.id);if(new Set(ids).size!==ids.length){iconStatus.textContent='No podés asignar el mismo tipo a dos recortes de la misma hoja.';return;}iconSheetUpload.disabled=true;try{let done=0;for(const item of assigned){const name=TYPE_NAMES[item.id]||item.id;iconStatus.textContent=`Guardando ${done+1}/${assigned.length}: ${name}…`;const r=await fetch(typeIconUrl(item.id),{method:'PUT',headers:{'Content-Type':'image/png'},body:item.blob});if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d.error||'No se pudo guardar '+name)}done++;}iconStatus.textContent=`${assigned.length} símbolo(s) guardados ✓`;await loadTypeIcons();}catch(e){iconStatus.textContent='Error: '+e.message}finally{iconSheetUpload.disabled=false}});
 
     // Miniatura de entidades: la mitad izquierda del PNG existente es la vista frontal.
     const entityPreview=document.createElement('div');entityPreview.className='entity-sprite-preview';entityPreview.hidden=true;
@@ -1514,10 +1536,6 @@ const response = await fetch(
       b.classList.add('entity-item');const img=document.createElement('img');img.className='catalog-sprite-thumb';img.src='/editor-api/sprites/'+encodeURIComponent(entry.definition.spriteId);img.alt='';img.onerror=()=>img.remove();b.prepend(img);
     }});
     listObserver.observe(catalogList,{childList:true});
-    const templateTools=document.getElementById('templateTools'),templateSelect=document.getElementById('templateSelect'),templateInsert=document.getElementById('templateInsert');
-    function refreshTemplateTools(){if(!templateTools)return;templateTools.hidden=catalogCategory.value==='effects'||catalogCategory.value==='entities';const old=templateSelect.value;templateSelect.replaceChildren(new Option('Elegí una plantilla…',''));for(const e of (cachedCatalog.effects||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,'es')))templateSelect.add(new Option(e.name,e.id));if([...templateSelect.options].some(o=>o.value===old))templateSelect.value=old;}
-    function envFromTemplateRule(r){const a=r.action||{},map={damage:'damage_percent',heal:'heal_percent',stat_change:'stat_change',remove_status:'remove_status',modify_active_cooldowns:'cooldown_change',cooldown_on_use:'cooldown_on_use',immunity:'immunity'};const type=map[a.type];if(!type)return null;const e={type,chance:Number(r.chance??100),filter:'all',types:[],timing:['damage_percent','heal_percent','cooldown_change'].includes(type)?'round_end':'continuous'};if(['damage_percent','heal_percent','stat_change','cooldown_change','cooldown_on_use'].includes(type))e.value=Number(a.value||0);if(type==='stat_change')e.stat=a.stat;if(type==='immunity')e.damageClass=a.damageClass||'all';return e;}
-    templateInsert.addEventListener('click',()=>{const id=templateSelect.value,t=(cachedCatalog.effects||[]).find(x=>x.id===id);if(!t){catalogStatus.textContent='Elegí una plantilla.';return;}if(environmentCategories.includes(catalogCategory.value)){let n=0;for(const r of t.definition?.rules||[]){const e=envFromTemplateRule(r);if(e){environmentRow(e);n++;}}catalogStatus.textContent=n?`Plantilla “${t.name}” copiada al entorno.`:'Esta plantilla no contiene efectos compatibles con entornos.';}else{const isMove=catalogCategory.value==='moves',isStatus=catalogCategory.value==='statuses';addRule({event:isStatus?'on_status':isMove?'manual':'',condition:{type:'always',value:''},conditions:[],target:isStatus?'self':'target',action:{type:'apply_effect',value:id},chance:100,duration:0,limit:0,operator:'AND',negate:false});catalogStatus.textContent=`Plantilla “${t.name}” añadida. Completá el evento/objetivo si corresponde.`;}setCatalogDirty(true);});
     const catalogTabs=document.getElementById('catalogTabs');
     for(const [id,label] of Object.entries(categoryTitles)){const b=document.createElement('button');b.type='button';b.className='catalog-tab';b.dataset.cat=id;b.textContent=label;b.addEventListener('click',()=>{if(catalogCategory.value===id)return;if(!confirmDiscard())return;catalogCategory.value=id;previousCatalogCategory=id;loadCatalog();showStudioView('catalog',id);});catalogTabs.append(b);}
     const updateCatalogTabs=()=>catalogTabs.querySelectorAll('.catalog-tab').forEach(b=>b.classList.toggle('active',b.dataset.cat===catalogCategory.value));catalogCategory.addEventListener('change',updateCatalogTabs);new MutationObserver(updateCatalogTabs).observe(catalogList,{childList:true});updateCatalogTabs();
