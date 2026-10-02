@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const html=fs.readFileSync('public/editor/index.html','utf8');
+assert(html.includes('const moveEventOptions = [["","Elegir evento…"],["manual","Al usar el movimiento"],["on_attack","Al atacar"],["on_hit","Al acertar"]]'), 'Movimientos debe permitir elegir Al usar / Al atacar / Al acertar');
+assert(!html.includes("isMove?'manual':rule.event"), 'El editor no debe forzar manual en movimientos');
+assert(!html.includes('wrappers.event.hidden=true'), 'El evento del movimiento no debe ocultarse');
+assert(html.includes("['continuous','Continuo mientras el entorno esté activo']"), 'Entornos deben mostrar timing continuo');
+assert(html.includes("['turn_start','Inicio de turno']"), 'Entornos deben mostrar inicio de turno');
+assert(html.includes("['turn_end','Final de turno']"), 'Entornos deben mostrar final de turno');
+assert(html.includes("['round_end','Final de ronda']"), 'Entornos deben mostrar final de ronda');
+console.log('PASS: editor expone eventos de movimientos y timings de entornos');

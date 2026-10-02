@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {simulate} from './battle-engine.js';
+const ability=id=>({id,name:id,definition:{rules:[]}});
+const move=(id,accuracy=100)=>({id,name:id,definition:{type:'fuego',category:'physical',power:50,accuracy,criticalChance:0,priority:0,cooldown:0,rules:[]}});
+const entity=(id,name=id)=>({id,name,definition:{types:['fuego'],hp:100,attack:100,defense:100,specialAttack:100,specialDefense:100,speed:100,moveIds:['m0','m1','m2'],uniqueMoveId:'m3',globalAbilityId:'a0',uniqueAbilityId:'a1'}});
+const catalog={entities:{hela:entity('hela','Hela'),otro:entity('otro','Otro')},moves:{m0:move('m0',0),m1:move('m1'),m2:move('m2'),m3:move('m3')},abilities:{a0:ability('a0'),a1:ability('a1')},effects:{},statuses:{},weathers:{},fields:{},scenarios:{}};
+const neverMiss=simulate({left:'hela',right:'otro',catalog,chart:{},turns:1,leftOrders:[{move:'m0'}],rightOrders:[{move:'m1'}],randomTape:[0.999999,0.999999,0.999999,0.999999]});
+assert.ok(neverMiss.right.hp<100,'accuracy 0 must mean never miss');
+assert.ok(!neverMiss.log.some(x=>x.includes('Hela falló')),'accuracy 0 bypasses hit check');
+const mirror=simulate({left:'hela',right:'hela',catalog,chart:{},turns:1,leftOrders:[{move:'m1'}],rightOrders:[{move:'m1'}],randomTape:Array(20).fill(0.2)});
+assert.equal(mirror.left.side,'left');assert.equal(mirror.right.side,'right');
+assert.ok(mirror.log.some(x=>x.includes('@@L@@Hela usó')||x.includes('@@R@@Hela usó')),'mirror logs carry side identity for UI');
+const html=fs.readFileSync('./public/editor/index.html','utf8');
+for(const token of ['simLeftTeamSearch','simRightTeamSearch','renderSimTeamPicker','battleIdentity','formatBattleLine','(oponente)'])assert.ok(html.includes(token),'missing UI token '+token);
+console.log('PASS: mirror identity, searchable teams and accuracy 0');

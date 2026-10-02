@@ -7,6 +7,7 @@ const TYPES = ['fuego','planta','roca','hielo','rayo','metal','guerra','mente','
 const STATS = ['attack','defense','specialAttack','specialDefense','speed','accuracy','evasion','criticalChance'];
 const ENV_CATS=['weathers','fields','scenarios'];
 const ENV_ACTIONS=['damage_percent','heal_percent','stat_change','critical_change','remove_status','block_status','cooldown_change','cooldown_on_use','immunity'];
+const ENV_TIMINGS=['continuous','turn_start','turn_end','round_end'];
 const slug = v => typeof v === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(v) && v.length <= 60;
 const numeric = v => typeof v === 'number' && Number.isFinite(v);
 const within = (v,a,b) => numeric(v) && v>=a && v<=b;
@@ -25,7 +26,7 @@ export function validateRules(definition,category){
  for(const [i,r] of definition.rules.entries()){
   const at=`Regla ${i+1}`;
   if(!EVENTS.includes(r.event)) fail(at+': elegí un evento admitido.');
-  if(category==='moves' && r.event!=='manual') fail(at+': un ataque solo admite el evento «Al usar» en este laboratorio.');
+  if(category==='moves' && !['manual','on_attack','on_hit'].includes(r.event)) fail(at+': un movimiento admite «Al usar», «Al atacar» o «Al acertar».');
   if(category==='effects' && r.event!=='manual') fail(at+': un efecto reutilizable solo admite el evento manual en este laboratorio.');
   if(['entities',...ENV_CATS].includes(category)) fail(at+': esta categoría no usa reglas propias.');
   if(category==='statuses' && (r.event!=='on_status'||r.condition?.type!=='always'||r.conditions?.length||r.target!=='self'||r.limit!==0)) fail(at+': los estados usan automáticamente «Mientras tenga el estado», sin condiciones extra, sobre el portador y sin límite.');
@@ -77,6 +78,8 @@ export function validateDefinition(category,d){
    const at='Efecto '+(i+1);
    if(!ENV_ACTIONS.includes(e.type))fail(at+': operación no admitida.');
    if(!within(e.chance,0,100))fail(at+': probabilidad entre 0 y 100 %.');
+   if(!ENV_TIMINGS.includes(e.timing))fail(at+': elegí un momento de activación válido.');
+   if(['cooldown_on_use','immunity'].includes(e.type)&&e.timing!=='continuous')fail(at+': este efecto debe permanecer en «Continuo mientras el entorno esté activo».');
    if(!['all','include','exclude'].includes(e.filter))fail(at+': elegí filtro de tipos.');
    if(!Array.isArray(e.types)||new Set(e.types).size!==e.types.length||e.types.some(t=>!TYPES.includes(t)))fail(at+': tipos inválidos o repetidos.');
    if(e.filter!=='all'&&!e.types.length)fail(at+': seleccioná al menos un tipo.');
@@ -87,10 +90,8 @@ export function validateDefinition(category,d){
    if(['remove_status','block_status'].includes(e.type)&&e.value!==undefined)fail(at+': esta acción no lleva valor.');
    if(e.type==='immunity'){if(!['all','physical','special'].includes(e.damageClass||'all'))fail(at+': inmunidad requiere Todos, Físico o Especial.');const q=e.immunityTypeFilter||{mode:'all',types:[]};if(!['all','include','exclude'].includes(q.mode)||!Array.isArray(q.types)||q.types.some(t=>!TYPES.includes(t)))fail(at+': filtro de tipos de ataque inválido.');}
    if(['cooldown_change','cooldown_on_use'].includes(e.type)&&(!Number.isInteger(e.value)||e.value<-50||e.value>50))fail(at+': el cambio de cooldown debe ser un entero entre −50 y +50 turnos.');
-   if(['remove_status','block_status'].includes(e.type)&&e.timing!=='round_end'&&e.timing!=='continuous')fail(at+': momento inválido.');
-   if(['damage_percent','heal_percent','cooldown_change'].includes(e.type)&&e.timing!=='round_end')fail(at+': daño, curación y cambio de cooldown activo se aplican al final de ronda.');
+   if(['damage_percent','heal_percent','cooldown_change'].includes(e.type)&&e.timing==='continuous')fail(at+': elegí Inicio de turno, Final de turno o Final de ronda para este efecto periódico.');
    if(e.type==='cooldown_on_use'&&e.timing!=='continuous')fail(at+': el cooldown al usar movimientos actúa mientras el entorno esté activo.');
-   if(['stat_change','critical_change'].includes(e.type)&&e.timing!=='continuous')fail(at+': las estadísticas se modifican mientras esté activo.');
   }
  }
  if(category==='scenarios'&&d.imageId&&!slug(d.imageId))fail('Escenario: ID de imagen inválido.');
