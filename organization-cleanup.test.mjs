@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const html=fs.readFileSync('public/editor/index.html','utf8');
+assert(!html.includes('Configuración visual'), 'No debe quedar el bloque instructivo Configuración visual');
+assert(!html.includes('Plantillas de efectos'), 'Plantillas no debe aparecer en el editor');
+assert(html.includes('Hoja de símbolos (PNG · 4 filas × 5 columnas)'), 'La hoja debe ser 4x5');
+assert(html.includes("select.add(new Option('Sin asignar',''))"), 'Cada recorte debe poder quedar sin asignar');
+assert(html.includes('id="typeSummaryTable"'), 'Debe existir el resumen de tipos');
+assert(html.includes("['','Elegí el efecto…']"), 'Los efectos ambientales deben empezar sin efecto seleccionado');
+assert(html.includes('["","Elegir acción…"]'), 'Las reglas deben empezar sin acción seleccionada');
+assert(html.includes('["immunity","Inmunidad a daño"]'), 'Inmunidad debe seguir disponible como opción seleccionable');
+console.log('organization cleanup UI ok');
