@@ -123,7 +123,7 @@ export default {
 
       // Sprites de tipos: recursos privados independientes de los sprites de entidades.
       // Se permite reemplazarlos expresamente; no se alteran los valores de la tabla.
-      const typeIds = new Set(["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","espiritu"]);
+      const typeIds = new Set(["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","valor"]);
       if (url.pathname === "/editor-api/type-icons" && request.method === "GET") {
         if (!env.EDITOR_SPRITES) return privateJson({error:"Almacenamiento R2 no conectado."},500);
         const objects = await env.EDITOR_SPRITES.list({prefix:"type-icons/",limit:100});
@@ -297,7 +297,7 @@ if (
         "veneno",
         "tecnologia",
         "agilidad",
-        "espiritu"
+        "valor"
       ];
 
       const TYPE_VALUES = [
@@ -400,13 +400,13 @@ if (
           const d=body.definition;
           try { validateDefinition(category,d); } catch (error) { return privateJson({error:error.message},400); }
           const slug=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-          const allTypes=["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","espiritu"];
+          const allTypes=["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","valor"];
           if (category === "moves") {
             if (!allTypes.includes(d.type)||!["physical","special","status"].includes(d.category)||!Number.isFinite(d.power)||d.power<0||d.power>500||!Number.isFinite(d.accuracy)||d.accuracy<0||d.accuracy>100||!Number.isFinite(d.criticalChance)||d.criticalChance<0||d.criticalChance>50||!Number.isInteger(d.priority)||d.priority< -5||d.priority>5) return privateJson({error:"Tipo, categoría, potencia, precisión, crítico o prioridad inválidos."},400);
           }
           if (category === "entities") {
             if(!Array.isArray(d.types)||d.types.length<1||d.types.length>3||new Set(d.types).size!==d.types.length||d.types.some(t=>!allTypes.includes(t)))return privateJson({error:"Se requieren 1–3 tipos distintos y válidos."},400);
-            for(const stat of ["hp","attack","defense","specialAttack","specialDefense","speed"])if(!Number.isInteger(d[stat])||d[stat]<(stat==="hp"?1:0)||d[stat]>200)return privateJson({error:"Estadística inválida: "+stat+" (PS 1–200; demás 0–200)."},400);
+            for(const stat of ["hp","attack","defense","specialAttack","specialDefense","speed"]){const max=stat==="hp"?500:200;if(!Number.isInteger(d[stat])||d[stat]<0||d[stat]>max)return privateJson({error:"Estadística inválida: "+stat+" (PS 0–500; demás 0–200)."},400);} if(["attack","defense","specialAttack","specialDefense","speed"].reduce((n,k)=>n+d[k],0)>1000)return privateJson({error:"Las cinco estadísticas base no pueden superar 1000 en total."},400);
             if(!Array.isArray(d.moveIds)||d.moveIds.length!==3||new Set([...d.moveIds,d.uniqueMoveId]).size!==4)return privateJson({error:"Se requieren tres ataques globales y uno exclusivo, todos distintos."},400);
             for(const [kind,ids] of [["moves",[...d.moveIds,d.uniqueMoveId]],["abilities",[d.globalAbilityId,d.uniqueAbilityId]]])for(const ref of ids) {
               if(!slug.test(ref||""))return privateJson({error:"Referencia inválida: "+ref},400);
@@ -449,10 +449,9 @@ if (
         if (saved?.chart) {
           for (const attack of TYPES) {
             for (const defense of TYPES) {
-              const oldAttack = attack === "viento" ? "aire" : attack;
-              const oldDefense = defense === "viento" ? "aire" : defense;
-              const value = saved.chart[attack]?.[defense]
-                ?? saved.chart[oldAttack]?.[oldDefense];
+              const oldAttacks=[attack,attack==='viento'?'aire':attack,attack==='valor'?'espiritu':attack];
+              const oldDefenses=[defense,defense==='viento'?'aire':defense,defense==='valor'?'espiritu':defense];
+              let value;for(const oa of oldAttacks){for(const od of oldDefenses){value ??= saved.chart[oa]?.[od];}}
               if (TYPE_VALUES.includes(value)) chart[attack][defense] = value;
             }
           }
