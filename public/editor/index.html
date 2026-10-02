@@ -1138,7 +1138,7 @@ const response = await fetch(
     function addRule(rule = {}) {
       const row=document.createElement('div');row.className='builder-row';const grid=document.createElement('div');grid.className='builder-grid';
       const isStatus=catalogCategory.value==='statuses',isMove=catalogCategory.value==='moves';
-      const event=labeledControl(grid,'Evento',optionSelect(eventOptions,isStatus?'on_status':isMove||isEffect?'manual':rule.event??''),'event');
+      const event=labeledControl(grid,'Evento',optionSelect(eventOptions,isStatus?'on_status':isMove?'manual':rule.event??''),'event');
       const conditionType=labeledControl(grid,'Condición',optionSelect(conditionOptions,isStatus||isMove?'always':rule.condition?.type??''),'conditionType');
       const conditionValue=labeledControl(grid,'Valor de condición',fieldControl('text',rule.condition?.value),'conditionValue');
       const conditionRefWrap=document.createElement('label');conditionRefWrap.textContent='Contenido de la condición';const conditionRefHolder=document.createElement('div');conditionRefWrap.append(conditionRefHolder);grid.append(conditionRefWrap);
@@ -1165,7 +1165,6 @@ const response = await fetch(
         const durationRelevant=['apply_status','suppress_abilities','restrict_moves','environment_immunity','prevent_environment','cooldown_on_use','immunity'].includes(a);wrappers.duration.hidden=!durationRelevant;wrappers.limit.hidden=catalogCategory.value!=='abilities';
         if(isStatus){for(const k of ['event','conditionType','conditionValue','target','operator','negate','limit','duration'])wrappers[k].hidden=true;conditionRefWrap.hidden=true;extra.hidden=true;addCondition.hidden=true;}
         if(isMove){wrappers.event.hidden=true;wrappers.conditionType.hidden=true;wrappers.conditionValue.hidden=true;conditionRefWrap.hidden=true;wrappers.operator.hidden=true;wrappers.negate.hidden=true;wrappers.limit.hidden=true;extra.hidden=true;addCondition.hidden=true;}
-        if(isEffect){wrappers.event.hidden=true;wrappers.conditionType.hidden=true;wrappers.conditionValue.hidden=true;conditionRefWrap.hidden=true;wrappers.operator.hidden=true;wrappers.negate.hidden=true;wrappers.limit.hidden=true;extra.hidden=true;addCondition.hidden=true;}
       }
       actionType.addEventListener('change',adapt);conditionType.addEventListener('change',adapt);immFilter.addEventListener('change',adapt);adapt();
       const remove=document.createElement('button');remove.type='button';remove.textContent='Quitar regla';remove.onclick=()=>row.remove();row.append(grid,extra,addCondition,remove);builderRules.append(row);
