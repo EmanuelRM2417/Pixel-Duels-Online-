@@ -333,7 +333,7 @@ if (
         const allIds=[...(Array.isArray(input.leftTeam)?input.leftTeam:[input.left]),...(Array.isArray(input.rightTeam)?input.rightTeam:[input.right])];
         if(allIds.length>16||allIds.some(id=>!idPattern.test(id||"")))return privateJson({error:"Equipo inválido."},400);
         const ids={entities:[...new Set(allIds)],moves:[],abilities:[],effects:[]};
-        const catalog={entities:{},moves:{},abilities:{},effects:{},weathers:{},fields:{},scenarios:{}};
+        const catalog={entities:{},moves:{},abilities:{},effects:{},statuses:{},weathers:{},fields:{},scenarios:{}};
         async function get(category,id) {
           if (!idPattern.test(id||"")) throw Error("Referencia inválida: "+id);
           if (catalog[category][id]) return catalog[category][id];
@@ -359,10 +359,11 @@ if (
           }
           // Cargar los entornos referenciados por habilidades/ataques/efectos.
           const seen=new Set();
-          for(const [category,id] of [['weathers',input.weather],['fields',input.field]])if(id)await get(category,id);
+          for(const [category,id] of [['weathers',input.weather],['fields',input.field],['scenarios',input.scenario]])if(id)await get(category,id);
           for(const category of ['moves','abilities','effects'])for(const entry of Object.values(catalog[category]))for(const rule of entry.definition.rules||[]){
             const envCategory={set_weather:'weathers',set_field:'fields',set_scenario:'scenarios'}[rule.action?.type];
             if(envCategory&&rule.action.value){const key=envCategory+':'+rule.action.value;if(!seen.has(key)){seen.add(key);await get(envCategory,rule.action.value);}}
+            if(rule.action?.type==='apply_status'&&rule.action.value){const key='statuses:'+rule.action.value;if(!seen.has(key)){seen.add(key);await get('statuses',rule.action.value);}}
           }
           const chart=await env.EDITOR_DRAFTS.get("type-chart-draft","json");
           return privateJson(simulate({left:input.left,right:input.right,catalog,chart:chart?.chart||chart,turns:(input.turns === undefined || input.turns === null || input.turns === '') ? 10 : Math.min(50,Math.max(0,Number(input.turns))),randomTape:input.randomTape||[],weather:input.weather||"",field:input.field||"",scenario:input.scenario||"",leftMove:input.leftMove||"",rightMove:input.rightMove||"",leftTeam:input.leftTeam,rightTeam:input.rightTeam,leftOrders:input.leftOrders,rightOrders:input.rightOrders}));
