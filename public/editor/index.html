@@ -1312,8 +1312,19 @@ const response = await fetch(
       setTimeout(()=>URL.revokeObjectURL(url),1000);
     });
     const publishAlpha=document.getElementById('publishAlpha'),publishAlphaStatus=document.getElementById('publishAlphaStatus');
-    async function refreshPublishState(){try{const r=await fetch('/editor-api/publish-alpha',{credentials:'same-origin'}),d=await r.json();if(!r.ok)throw Error(d.error||'No se pudo consultar.');publishAlphaStatus.textContent=d.current?`Publicado ${d.current.version} · ${new Date(d.current.publishedAt).toLocaleString()} · ${d.current.counts?.entities||0} personajes`:'Todavía no hay una Alpha publicada.';}catch(e){publishAlphaStatus.textContent='Estado público: '+e.message;}}
-    publishAlpha.addEventListener('click',async()=>{if(catalogDirty){publishAlphaStatus.textContent='Guardá primero los cambios pendientes del elemento actual.';return;}if(!confirm('¿Publicar el catálogo actual como snapshot de Universal Duels Alpha 0.1?'))return;publishAlpha.disabled=true;publishAlphaStatus.textContent='Publicando…';try{const r=await fetch('/editor-api/publish-alpha',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',credentials:'same-origin'}),d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'No se pudo publicar.');publishAlphaStatus.textContent=`Publicado ${d.version} · ${d.counts.entities} personajes · revisión ${d.revision}`;}catch(e){publishAlphaStatus.textContent='Error al publicar: '+e.message;}finally{publishAlpha.disabled=false;}});
+    async function readApiResponse(r){
+      const text=await r.text();
+      let data=null;
+      if(text){try{data=JSON.parse(text);}catch{}}
+      if(!r.ok){
+        const detail=data?.error||data?.message||(text&&!/^\s*</.test(text)?text.slice(0,240):'');
+        throw Error(`HTTP ${r.status}${detail?`: ${detail}`:''}`);
+      }
+      if(!data) throw Error(`HTTP ${r.status}: el servidor devolvió una respuesta vacía o no JSON.`);
+      return data;
+    }
+    async function refreshPublishState(){try{const r=await fetch('/editor-api/publish-alpha',{credentials:'same-origin',redirect:'follow',cache:'no-store'}),d=await readApiResponse(r);publishAlphaStatus.textContent=d.current?`Publicado ${d.current.version} · ${new Date(d.current.publishedAt).toLocaleString()} · ${d.current.counts?.entities||0} personajes`:'Todavía no hay una Alpha publicada.';}catch(e){publishAlphaStatus.textContent='Estado público: '+e.message;}}
+    publishAlpha.addEventListener('click',async()=>{if(catalogDirty){publishAlphaStatus.textContent='Guardá primero los cambios pendientes del elemento actual.';return;}if(!confirm('¿Publicar el catálogo actual como snapshot de Universal Duels Alpha 0.1?'))return;publishAlpha.disabled=true;publishAlphaStatus.textContent='Publicando…';try{const r=await fetch('/editor-api/publish-alpha',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:'{}',credentials:'same-origin',redirect:'follow',cache:'no-store'}),d=await readApiResponse(r);if(!d.ok)throw Error(d.error||'No se pudo publicar.');publishAlphaStatus.textContent=`Publicado ${d.version} · ${d.counts.entities} personajes · revisión ${d.revision}`;}catch(e){publishAlphaStatus.textContent='Error al publicar: '+e.message;}finally{publishAlpha.disabled=false;}});
     refreshPublishState();
     document.getElementById("builderAddRule").addEventListener("click",()=>addRule());
     advancedToggle.addEventListener("click", () => {
