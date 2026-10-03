@@ -423,6 +423,8 @@
         <div class="catalog-list" id="catalogList"></div>
         <button type="button" id="catalogNew">+ Nuevo elemento</button>
         <button type="button" id="catalogExport" class="secondary-action">Exportar catálogo (JSON)</button>
+        <button type="button" id="publishAlpha" class="secondary-action">Publicar Alpha 0.1</button>
+        <p class="help" id="publishAlphaStatus">Todavía no se consultó el estado público.</p>
       </div>
       <div>
         <label for="catalogId">Identificador (minúsculas, números y guiones)</label>
@@ -1309,6 +1311,10 @@ const response = await fetch(
       const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=`universal-duels-${catalogCategory.value}.json`;link.click();
       setTimeout(()=>URL.revokeObjectURL(url),1000);
     });
+    const publishAlpha=document.getElementById('publishAlpha'),publishAlphaStatus=document.getElementById('publishAlphaStatus');
+    async function refreshPublishState(){try{const r=await fetch('/editor-api/publish-alpha',{credentials:'same-origin'}),d=await r.json();if(!r.ok)throw Error(d.error||'No se pudo consultar.');publishAlphaStatus.textContent=d.current?`Publicado ${d.current.version} · ${new Date(d.current.publishedAt).toLocaleString()} · ${d.current.counts?.entities||0} personajes`:'Todavía no hay una Alpha publicada.';}catch(e){publishAlphaStatus.textContent='Estado público: '+e.message;}}
+    publishAlpha.addEventListener('click',async()=>{if(catalogDirty){publishAlphaStatus.textContent='Guardá primero los cambios pendientes del elemento actual.';return;}if(!confirm('¿Publicar el catálogo actual como snapshot de Universal Duels Alpha 0.1?'))return;publishAlpha.disabled=true;publishAlphaStatus.textContent='Publicando…';try{const r=await fetch('/editor-api/publish-alpha',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',credentials:'same-origin'}),d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'No se pudo publicar.');publishAlphaStatus.textContent=`Publicado ${d.version} · ${d.counts.entities} personajes · revisión ${d.revision}`;}catch(e){publishAlphaStatus.textContent='Error al publicar: '+e.message;}finally{publishAlpha.disabled=false;}});
+    refreshPublishState();
     document.getElementById("builderAddRule").addEventListener("click",()=>addRule());
     advancedToggle.addEventListener("click", () => {
       if (!advancedMode) catalogDefinition.value = JSON.stringify(readBuilder(),null,2);
