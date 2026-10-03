@@ -5,6 +5,13 @@ const html=fs.readFileSync(new URL('./public/editor/index.html',import.meta.url)
 assert.match(worker,/\/editor-api\/publish-alpha/);
 assert.match(worker,/public-v1:snapshot:/);
 assert.match(worker,/public-v1:current/);
+assert.match(worker,/El snapshot no pudo verificarse/);
+assert.match(worker,/Error interno al publicar/);
+assert.match(worker,/No hay movimientos guardados/);
 assert.match(html,/id="publishAlpha"/);
 assert.match(html,/Publicar Alpha 0\.1/);
+assert.match(html,/async function readApiResponse/);
+assert.match(html,/r\.text\(\)/);
+assert.match(html,/respuesta vacía o no JSON/);
+assert.match(html,/credentials:'same-origin'/);
 console.log('publish alpha tests ok');
