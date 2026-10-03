@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const worker=fs.readFileSync(new URL('./worker.js',import.meta.url),'utf8');
+const html=fs.readFileSync(new URL('./public/editor/index.html',import.meta.url),'utf8');
+assert.match(worker,/\/editor-api\/publish-alpha/);
+assert.match(worker,/public-v1:snapshot:/);
+assert.match(worker,/public-v1:current/);
+assert.match(html,/id="publishAlpha"/);
+assert.match(html,/Publicar Alpha 0\.1/);
+console.log('publish alpha tests ok');

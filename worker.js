@@ -121,6 +121,61 @@ export default {
       }
 
 
+      // Publicación manual del catálogo para la Alpha pública.
+      // El juego público nunca lee catalog-v1:* directamente: solo el snapshot inmutable
+      // señalado por public-v1:current.
+      if (url.pathname === "/editor-api/publish-alpha") {
+        if (request.method === "GET") {
+          const current = await env.EDITOR_DRAFTS.get("public-v1:current", "json");
+          return privateJson({ ok: true, current: current || null });
+        }
+        if (request.method !== "POST") return privateJson({ error: "Método no permitido." }, 405);
+        if (request.headers.get("Origin") !== url.origin) return privateJson({ error: "Origen no autorizado." }, 403);
+
+        const categories = ["effects", "moves", "abilities", "entities", "weathers", "fields", "scenarios", "statuses"];
+        const catalog = Object.fromEntries(categories.map(k => [k, {}]));
+        for (const category of categories) {
+          let cursor;
+          do {
+            const listed = await env.EDITOR_DRAFTS.list({ prefix: `catalog-v1:${category}:`, limit: 1000, cursor });
+            const entries = await Promise.all(listed.keys.map(key => env.EDITOR_DRAFTS.get(key.name, "json")));
+            for (const entry of entries.filter(Boolean)) catalog[category][entry.id] = entry;
+            cursor = listed.list_complete ? undefined : listed.cursor;
+          } while (cursor);
+        }
+        if (Object.keys(catalog.entities).length < 2) return privateJson({ error: "Se requieren al menos dos personajes guardados para publicar." }, 400);
+
+        const typeIds = ["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","valor"];
+        const rawChart = await env.EDITOR_DRAFTS.get("type-chart-draft", "json");
+        const chart = {};
+        for (const attack of typeIds) {
+          chart[attack] = {};
+          for (const defense of typeIds) {
+            const oldAttacks=[attack,attack==='viento'?'aire':attack,attack==='valor'?'espiritu':attack];
+            const oldDefenses=[defense,defense==='viento'?'aire':defense,defense==='valor'?'espiritu':defense];
+            let value;
+            for (const oa of oldAttacks) for (const od of oldDefenses) value ??= rawChart?.chart?.[oa]?.[od];
+            chart[attack][defense] = ["neutral","ineficaz","eficaz","inmune"].includes(value) ? value : "neutral";
+          }
+        }
+
+        // Validar que las entidades publicadas no dependan de referencias inexistentes.
+        for (const entity of Object.values(catalog.entities)) {
+          try { validateDefinition("entities", entity.definition); } catch (error) { return privateJson({error:`${entity.name}: ${error.message}`},400); }
+          const d=entity.definition||{};
+          for (const mid of [...(d.moveIds||[]), d.uniqueMoveId]) if (!catalog.moves[mid]) return privateJson({error:`${entity.name}: falta el movimiento ${mid}.`},400);
+          for (const aid of [d.globalAbilityId,d.uniqueAbilityId]) if (!catalog.abilities[aid]) return privateJson({error:`${entity.name}: falta la habilidad ${aid}.`},400);
+        }
+
+        const publishedAt = new Date().toISOString();
+        const revision = `alpha01-${Date.now()}`;
+        const snapshot = { version:"0.1.0-alpha", revision, publishedAt, types:typeIds, chart, catalog };
+        const counts = Object.fromEntries(categories.map(k => [k, Object.keys(catalog[k]).length]));
+        await env.EDITOR_DRAFTS.put(`public-v1:snapshot:${revision}`, JSON.stringify(snapshot));
+        await env.EDITOR_DRAFTS.put("public-v1:current", JSON.stringify({ version:snapshot.version, revision, publishedAt, counts }));
+        return privateJson({ ok:true, version:snapshot.version, revision, publishedAt, counts });
+      }
+
       // Sprites de tipos: recursos privados independientes de los sprites de entidades.
       // Se permite reemplazarlos expresamente; no se alteran los valores de la tabla.
       const typeIds = new Set(["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","valor"]);
