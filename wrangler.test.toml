@@ -21,7 +21,7 @@ bucket_name = "universal-duels-sprites-test"
 [assets]
 directory = "./public"
 binding = "ASSETS"
-run_worker_first = ["/api/*", "/health", "/editor-api/*", "/editor", "/editor/*"]
+run_worker_first = true
 
 [vars]
 ACCESS_TEAM_DOMAIN = "nameless-water-b29a.cloudflareaccess.com"

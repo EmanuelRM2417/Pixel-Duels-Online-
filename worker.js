@@ -80,6 +80,15 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Diagnóstico de despliegue: confirma que esta URL ejecuta el Worker de pruebas.
+    if (url.pathname === "/health") {
+      return privateJson({
+        ok: true,
+        worker: "universal-duels-test",
+        version: "alpha-0.1-editor-2026-10-02"
+      });
+    }
+
     // Ruta estable del editor privado. Cloudflare Assets no siempre resuelve
     // automáticamente /editor/ como /editor/index.html, así que lo hacemos
     // explícito antes de procesar la API.
