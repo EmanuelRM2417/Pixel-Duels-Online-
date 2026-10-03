@@ -80,6 +80,15 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Ruta estable del editor privado. Cloudflare Assets no siempre resuelve
+    // automáticamente /editor/ como /editor/index.html, así que lo hacemos
+    // explícito antes de procesar la API.
+    if ((url.pathname === "/editor" || url.pathname === "/editor/") && env.ASSETS) {
+      const assetUrl = new URL(request.url);
+      assetUrl.pathname = "/editor/index.html";
+      return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+    }
+
     // API privada del editor.
     if (url.pathname.startsWith("/editor-api/")) {
       if (request.method === "OPTIONS") {
@@ -126,69 +135,58 @@ export default {
       // señalado por public-v1:current.
       if (url.pathname === "/editor-api/publish-alpha") {
         try {
-          if (request.method === "GET") {
-            const current = await env.EDITOR_DRAFTS.get("public-v1:current", "json");
-            return privateJson({ ok: true, current: current || null });
-          }
-          if (request.method !== "POST") return privateJson({ ok:false, error: "Método no permitido." }, 405);
-          const origin = request.headers.get("Origin");
-          if (origin && origin !== url.origin) return privateJson({ ok:false, error: "Origen no autorizado." }, 403);
+        if (request.method === "GET") {
+          const current = await env.EDITOR_DRAFTS.get("public-v1:current", "json");
+          return privateJson({ ok: true, current: current || null });
+        }
+        if (request.method !== "POST") return privateJson({ error: "Método no permitido." }, 405);
+        if (request.headers.get("Origin") !== url.origin) return privateJson({ error: "Origen no autorizado." }, 403);
 
-          const categories = ["effects", "moves", "abilities", "entities", "weathers", "fields", "scenarios", "statuses"];
-          const catalog = Object.fromEntries(categories.map(k => [k, {}]));
-          for (const category of categories) {
-            let cursor;
-            do {
-              const listed = await env.EDITOR_DRAFTS.list({ prefix: `catalog-v1:${category}:`, limit: 1000, cursor });
-              const entries = await Promise.all(listed.keys.map(key => env.EDITOR_DRAFTS.get(key.name, "json")));
-              for (const entry of entries.filter(Boolean)) {
-                if (!entry.id) return privateJson({ok:false,error:`Entrada sin id en ${category}.`},400);
-                catalog[category][entry.id] = entry;
-              }
-              cursor = listed.list_complete ? undefined : listed.cursor;
-            } while (cursor);
-          }
-          if (Object.keys(catalog.entities).length < 2) return privateJson({ ok:false, error: "Se requieren al menos dos personajes guardados para publicar." }, 400);
-          if (Object.keys(catalog.moves).length < 1) return privateJson({ ok:false, error: "No hay movimientos guardados para publicar." }, 400);
+        const categories = ["effects", "moves", "abilities", "entities", "weathers", "fields", "scenarios", "statuses"];
+        const catalog = Object.fromEntries(categories.map(k => [k, {}]));
+        for (const category of categories) {
+          let cursor;
+          do {
+            const listed = await env.EDITOR_DRAFTS.list({ prefix: `catalog-v1:${category}:`, limit: 1000, cursor });
+            const entries = await Promise.all(listed.keys.map(key => env.EDITOR_DRAFTS.get(key.name, "json")));
+            for (const entry of entries.filter(Boolean)) catalog[category][entry.id] = entry;
+            cursor = listed.list_complete ? undefined : listed.cursor;
+          } while (cursor);
+        }
+        if (Object.keys(catalog.entities).length < 2) return privateJson({ ok:false, error: "Se requieren al menos dos personajes guardados para publicar." }, 400);
+        if (Object.keys(catalog.moves).length < 1) return privateJson({ ok:false, error: "No hay movimientos guardados para publicar." }, 400);
 
-          const typeIds = ["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","valor"];
-          const rawChart = await env.EDITOR_DRAFTS.get("type-chart-draft", "json");
-          const chart = {};
-          for (const attack of typeIds) {
-            chart[attack] = {};
-            for (const defense of typeIds) {
-              const oldAttacks=[attack,attack==='viento'?'aire':attack,attack==='valor'?'espiritu':attack];
-              const oldDefenses=[defense,defense==='viento'?'aire':defense,defense==='valor'?'espiritu':defense];
-              let value;
-              for (const oa of oldAttacks) for (const od of oldDefenses) value ??= rawChart?.chart?.[oa]?.[od];
-              chart[attack][defense] = ["neutral","ineficaz","eficaz","inmune"].includes(value) ? value : "neutral";
-            }
+        const typeIds = ["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","valor"];
+        const rawChart = await env.EDITOR_DRAFTS.get("type-chart-draft", "json");
+        const chart = {};
+        for (const attack of typeIds) {
+          chart[attack] = {};
+          for (const defense of typeIds) {
+            const oldAttacks=[attack,attack==='viento'?'aire':attack,attack==='valor'?'espiritu':attack];
+            const oldDefenses=[defense,defense==='viento'?'aire':defense,defense==='valor'?'espiritu':defense];
+            let value;
+            for (const oa of oldAttacks) for (const od of oldDefenses) value ??= rawChart?.chart?.[oa]?.[od];
+            chart[attack][defense] = ["neutral","ineficaz","eficaz","inmune"].includes(value) ? value : "neutral";
           }
+        }
 
-          for (const entity of Object.values(catalog.entities)) {
-            const definition = entity.definition || {};
-            try { validateDefinition("entities", definition); }
-            catch (error) { return privateJson({ok:false,error:`${entity.name || entity.id}: ${error.message}`},400); }
-            for (const mid of [...(definition.moveIds||[]), definition.uniqueMoveId].filter(Boolean))
-              if (!catalog.moves[mid]) return privateJson({ok:false,error:`${entity.name || entity.id}: falta el movimiento ${mid}.`},400);
-            for (const aid of [definition.globalAbilityId,definition.uniqueAbilityId].filter(Boolean))
-              if (!catalog.abilities[aid]) return privateJson({ok:false,error:`${entity.name || entity.id}: falta la habilidad ${aid}.`},400);
-          }
+        // Validar que las entidades publicadas no dependan de referencias inexistentes.
+        for (const entity of Object.values(catalog.entities)) {
+          try { validateDefinition("entities", entity.definition); } catch (error) { return privateJson({error:`${entity.name}: ${error.message}`},400); }
+          const d=entity.definition||{};
+          for (const mid of [...(d.moveIds||[]), d.uniqueMoveId]) if (!catalog.moves[mid]) return privateJson({error:`${entity.name}: falta el movimiento ${mid}.`},400);
+          for (const aid of [d.globalAbilityId,d.uniqueAbilityId]) if (!catalog.abilities[aid]) return privateJson({error:`${entity.name}: falta la habilidad ${aid}.`},400);
+        }
 
-          const publishedAt = new Date().toISOString();
-          const revision = `alpha01-${Date.now()}`;
-          const snapshot = { version:"0.1.0-alpha", revision, publishedAt, types:typeIds, chart, catalog };
-          const counts = Object.fromEntries(categories.map(k => [k, Object.keys(catalog[k]).length]));
-          const snapshotKey = `public-v1:snapshot:${revision}`;
-          await env.EDITOR_DRAFTS.put(snapshotKey, JSON.stringify(snapshot));
-          const verify = await env.EDITOR_DRAFTS.get(snapshotKey, "json");
-          if (!verify || verify.revision !== revision || Object.keys(verify.catalog?.entities || {}).length !== counts.entities)
-            return privateJson({ok:false,error:"El snapshot no pudo verificarse después de guardarlo."},500);
-          await env.EDITOR_DRAFTS.put("public-v1:current", JSON.stringify({ version:snapshot.version, revision, publishedAt, counts }));
-          return privateJson({ ok:true, version:snapshot.version, revision, publishedAt, counts });
+        const publishedAt = new Date().toISOString();
+        const revision = `alpha01-${Date.now()}`;
+        const snapshot = { version:"0.1.0-alpha", revision, publishedAt, types:typeIds, chart, catalog };
+        const counts = Object.fromEntries(categories.map(k => [k, Object.keys(catalog[k]).length]));
+        await env.EDITOR_DRAFTS.put(`public-v1:snapshot:${revision}`, JSON.stringify(snapshot));
+        await env.EDITOR_DRAFTS.put("public-v1:current", JSON.stringify({ version:snapshot.version, revision, publishedAt, counts }));
+        return privateJson({ ok:true, version:snapshot.version, revision, publishedAt, counts });
         } catch (error) {
-          console.error("publish-alpha", error);
-          return privateJson({ ok:false, error:`Error interno al publicar: ${error?.message || String(error)}` }, 500);
+          return privateJson({ ok:false, error: `Error interno al publicar: ${error?.message || String(error)}` }, 500);
         }
       }
 
