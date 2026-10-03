@@ -10,16 +10,17 @@ class_name = "Room"
 tag = "v1"
 new_sqlite_classes = ["Room"]
 
+# Alpha 0.1: main solo lee snapshots publicados desde el editor privado.
 [[kv_namespaces]]
-binding = "EDITOR_DRAFTS"
-id = "1173494a63814d1b9093b9a409cf2832"
+binding = "PUBLIC_CONTENT"
+id = "453d2d63210e42149663b5771e76a803"
+
+# Alpha 0.1: recursos publicados del mismo almacén usado por el editor de pruebas.
+[[r2_buckets]]
+binding = "PUBLIC_SPRITES"
+bucket_name = "universal-duels-sprites-test"
 
 [assets]
 directory = "./public"
 binding = "ASSETS"
-run_worker_first = ["/api/*", "/health", "/editor-api/*"]
-
-[vars]
-ACCESS_TEAM_DOMAIN = "nameless-water-b29a.cloudflareaccess.com"
-ACCESS_AUD = "c38edfabcf3221f1ad4fa4c1b9d69e99600c921b83e99fc197c083afd9fa205c"
-EDITOR_EMAIL = "2417erm@gmail.com"
+run_worker_first = ["/api/*", "/health"]

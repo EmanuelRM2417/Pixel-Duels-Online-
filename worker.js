@@ -1,1072 +1,176 @@
-import { validateDefinition } from "./catalog-validation.js";
 import { simulate } from "./battle-engine.js";
 
-import { createRemoteJWKSet, jwtVerify } from "jose";
+const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET,POST,OPTIONS","Access-Control-Allow-Headers":"Content-Type"};
+const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{...cors,"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
+const TYPES=new Set(["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","valor"]);
+const ID=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-// Respuestas JSON.
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
-const json = (data, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      ...cors,
-      "Content-Type": "application/json"
-    }
-  });
-
-// Verifica identidad mediante Cloudflare Access.
-async function verifyEditorAccess(request, env) {
-  try {
-    const token = request.headers.get("Cf-Access-Jwt-Assertion");
-
-    if (
-      !token ||
-      !env.ACCESS_TEAM_DOMAIN ||
-      !env.ACCESS_AUD ||
-      !env.EDITOR_EMAIL
-    ) {
-      return null;
-    }
-
-    const teamDomain = env.ACCESS_TEAM_DOMAIN
-      .replace(/^https?:\/\//, "")
-      .replace(/\/+$/, "");
-
-    const issuer = `https://${teamDomain}`;
-
-    const keys = createRemoteJWKSet(
-      new URL(`${issuer}/cdn-cgi/access/certs`)
-    );
-
-    const { payload } = await jwtVerify(token, keys, {
-      issuer,
-      audience: env.ACCESS_AUD
-    });
-
-    const authorizedEmail = env.EDITOR_EMAIL
-      .trim()
-      .toLowerCase();
-
-    const tokenEmail = String(payload.email || "")
-      .trim()
-      .toLowerCase();
-
-    if (!tokenEmail || tokenEmail !== authorizedEmail) {
-      return null;
-    }
-
-    return payload;
-  } catch {
-    return null;
-  }
+async function pointer(env){return env.PUBLIC_CONTENT?.get("public-v1:current","json");}
+async function snapshot(env,revision){
+  if(!env.PUBLIC_CONTENT)throw Error("Contenido público no conectado.");
+  let rev=revision;
+  if(!rev){const p=await pointer(env);rev=p?.revision;}
+  if(!rev||!/^[a-z0-9-]{1,80}$/.test(rev))throw Error("Todavía no hay una Alpha publicada.");
+  const value=await env.PUBLIC_CONTENT.get(`public-v1:snapshot:${rev}`,"json");
+  if(!value)throw Error("La revisión publicada ya no está disponible.");
+  return value;
 }
-
-// Respuestas privadas sin CORS público.
-const privateJson = (data, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-store"
-    }
-  });
+function publicCatalog(s){return {ok:true,version:s.version,revision:s.revision,publishedAt:s.publishedAt,types:s.types,chart:s.chart,catalog:s.catalog};}
+function cleanName(value){const name=String(value||"Jugador").trim().replace(/[<>\u0000-\u001f]/g,"").slice(0,20);return name||"Jugador";}
+function makeCode(){const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",bytes=new Uint8Array(6);crypto.getRandomValues(bytes);return [...bytes].map(x=>chars[x%chars.length]).join("");}
+function compactResult(r){return {rounds:r.rounds,winner:r.winner,left:r.left,right:r.right,leftTeam:r.leftTeam,rightTeam:r.rightTeam,weather:r.weather,field:r.field,scenario:r.scenario,weatherTurns:r.weatherTurns,fieldTurns:r.fieldTurns,scenarioTurns:r.scenarioTurns};}
 
 export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-
-    // API privada del editor.
-    if (url.pathname.startsWith("/editor-api/")) {
-      if (request.method === "OPTIONS") {
-        return privateJson({
-          error: "Método no permitido."
-        }, 405);
-      }
-
-      const identity = await verifyEditorAccess(request, env);
-
-      if (!identity) {
-        return privateJson({
-          ok: false,
-          error: "Acceso no autorizado."
-        }, 401);
-      }
-
-      if (!env.EDITOR_DRAFTS) {
-        return privateJson({
-          ok: false,
-          error: "Almacenamiento no conectado."
-        }, 500);
-      }
-
-      // Comprobar conexión del editor.
-      if (url.pathname === "/editor-api/status") {
-        if (request.method !== "GET") {
-          return privateJson({
-            error: "Método no permitido."
-          }, 405);
-        }
-
-        return privateJson({
-          ok: true,
-          editor: "Universal Duels",
-          draftsConnected: true,
-          publicationMode: "manual"
-        });
-      }
-
-
-      // Sprites de tipos: recursos privados independientes de los sprites de entidades.
-      // Se permite reemplazarlos expresamente; no se alteran los valores de la tabla.
-      const typeIds = new Set(["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","valor"]);
-      if (url.pathname === "/editor-api/type-icons" && request.method === "GET") {
-        if (!env.EDITOR_SPRITES) return privateJson({error:"Almacenamiento R2 no conectado."},500);
-        const objects = await env.EDITOR_SPRITES.list({prefix:"type-icons/",limit:100});
-        return privateJson({ok:true,types:objects.objects.map(o=>o.key.slice(11).replace(/\.png$/,"" )).filter(id=>typeIds.has(id))});
-      }
-      const iconMatch=url.pathname.match(/^\/editor-api\/type-icons\/([a-z]+)$/);
-      if(iconMatch){
-        const id=iconMatch[1];if(!typeIds.has(id))return privateJson({error:"Tipo desconocido."},400);
-        if(!env.EDITOR_SPRITES)return privateJson({error:"Almacenamiento R2 no conectado."},500);
-        const key=`type-icons/${id}.png`;
-        if(request.method==="GET"){
-          const obj=await env.EDITOR_SPRITES.get(key);if(!obj)return privateJson({error:"Sprite no encontrado."},404);
-          return new Response(obj.body,{headers:{"Content-Type":"image/png","Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
-        }
-        if(request.method==="PUT"){
-          if(request.headers.get("Origin")!==url.origin)return privateJson({error:"Origen no autorizado."},403);
-          if(!(request.headers.get("Content-Type")||"").toLowerCase().startsWith("image/png"))return privateJson({error:"Solo PNG."},415);
-          const length=Number(request.headers.get("Content-Length")||0);if(length>2*1024*1024)return privateJson({error:"PNG demasiado grande."},413);
-          const bytes=await request.arrayBuffer();if(!bytes.byteLength||bytes.byteLength>2*1024*1024)return privateJson({error:"El PNG debe pesar entre 1 byte y 2 MB."},413);
-          const sig=new Uint8Array(bytes).slice(0,8);if(![137,80,78,71,13,10,26,10].every((x,i)=>sig[i]===x))return privateJson({error:"Firma PNG inválida."},415);
-          await env.EDITOR_SPRITES.put(key,bytes,{httpMetadata:{contentType:"image/png"}});
-          return privateJson({ok:true,type:id,message:"Sprite guardado."});
-        }
-        return privateJson({error:"Método no permitido."},405);
-      }
-
-      // Subir imagen original de una entidad.
-if (
-  url.pathname === "/editor-api/sprites" &&
-  request.method === "POST"
-) {
-  if (!env.EDITOR_SPRITES) {
-    return privateJson({
-      error: "El almacenamiento de sprites no está conectado."
-    }, 500);
-  }
-
-  const origin = request.headers.get("Origin");
-
-  if (origin !== url.origin) {
-    return privateJson({
-      error: "Origen no autorizado."
-    }, 403);
-  }
-
-  const contentType = request.headers.get("Content-Type") || "";
-
-  if (!contentType.toLowerCase().startsWith("image/png")) {
-    return privateJson({
-      error: "Solo se permiten archivos PNG."
-    }, 415);
-  }
-
-  const maxSize = 2 * 1024 * 1024;
-  const bytes = await request.arrayBuffer();
-
-  if (bytes.byteLength === 0 || bytes.byteLength > maxSize) {
-    return privateJson({
-      error: "El PNG debe pesar entre 1 byte y 2 MB."
-    }, 413);
-  }
-
-  const signature = new Uint8Array(bytes).slice(0, 8);
-  const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
-
-  if (!pngSignature.every((value, i) => signature[i] === value)) {
-    return privateJson({
-      error: "El archivo no es un PNG válido."
-    }, 415);
-  }
-
-    // Identificador elegido por el usuario.
-  const spriteId = url.searchParams.get("id") || "";
-
-  // Solo letras minúsculas, números y guiones.
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(spriteId) ||
-      spriteId.length > 60) {
-    return privateJson({
-      error: "Usá entre 1 y 60 caracteres: letras minúsculas, números y guiones."
-    }, 400);
-  }
-
-  const key = `drafts/${spriteId}.png`;
-
-  // Evitar reemplazar un sprite existente.
-  const existing = await env.EDITOR_SPRITES.head(key);
-
-  if (existing) {
-    return privateJson({
-      error: "Ya existe un sprite con ese identificador."
-    }, 409);
-  }
-
-  await env.EDITOR_SPRITES.put(key, bytes, {
-    httpMetadata: {
-      contentType: "image/png"
+  async fetch(request,env){
+    const url=new URL(request.url);
+    if(request.method==="OPTIONS")return new Response(null,{headers:cors});
+    if(url.pathname==="/health"){
+      const p=await pointer(env);
+      return json({ok:true,service:"Universal Duels",version:"0.1.0-alpha",publishedRevision:p?.revision||null});
     }
-  });
-
-  return privateJson({
-    ok: true,
-    spriteId,
-    message: "Sprite original guardado como borrador."
-  });
-}
-// Consultar un sprite privado guardado en R2.
-if (
-  url.pathname.startsWith("/editor-api/sprites/") &&
-  request.method === "GET"
-) {
-  if (!env.EDITOR_SPRITES) {
-    return privateJson({
-      error: "Almacenamiento de sprites no conectado."
-    }, 500);
-  }
-
-  const spriteId = url.pathname.slice(
-    "/editor-api/sprites/".length
-  );
-
-    if (
-    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(spriteId) ||
-    spriteId.length > 60
-  ) {
-      
-    return privateJson({
-      error: "Identificador inválido."
-    }, 400);
-  }
-
-  const object = await env.EDITOR_SPRITES.get(
-    `drafts/${spriteId}.png`
-  );
-
-  if (!object) {
-    return privateJson({
-      error: "Sprite no encontrado."
-    }, 404);
-  }
-
-  return new Response(object.body, {
-    headers: {
-      "Content-Type": "image/png",
-      "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff"
+    if(url.pathname==="/api/catalog"&&request.method==="GET"){
+      try{return json(publicCatalog(await snapshot(env)));}catch(e){return json({error:e.message},503);}
     }
-  });
-}      
-
-      // ========================================
-      // TABLA DE TIPOS
-      // ========================================
-
-      const TYPES = [
-        "fuego",
-        "planta",
-        "roca",
-        "hielo",
-        "rayo",
-        "metal",
-        "guerra",
-        "mente",
-        "encanto",
-        "espectro",
-        "divinidad",
-        "luz",
-        "oscuridad",
-        "viento",
-        "dragon",
-        "agua",
-        "veneno",
-        "tecnologia",
-        "agilidad",
-        "valor"
-      ];
-
-      const TYPE_VALUES = [
-        "neutral",
-        "ineficaz",
-        "eficaz",
-        "inmune"
-      ];
-
-      // Crear tabla inicialmente neutral.
-      function createDefaultTypeChart() {
-        const chart = {};
-
-        for (const attackType of TYPES) {
-          chart[attackType] = {};
-
-          for (const defenseType of TYPES) {
-            chart[attackType][defenseType] = "neutral";
-          }
-        }
-
-        return chart;
-      }
-
-      // Simulación de combate exclusivamente privada y sin escrituras.
-      if ((url.pathname === "/editor-api/simulate" || url.pathname === "/editor-api/simulate-step") && request.method === "POST") {
-        if (request.headers.get("Origin") !== url.origin) return privateJson({error:"Origen no autorizado."},403);
-        let input;
-        try { const raw=await request.text(); if(raw.length>400000) return privateJson({error:"Solicitud demasiado grande."},413); input=JSON.parse(raw); }
-        catch { return privateJson({error:"Solicitud inválida."},400); }
-        const idPattern=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-        if (!idPattern.test(input?.left||"") || !idPattern.test(input?.right||"")) return privateJson({error:"Elegí dos entidades válidas."},400);
-        const allIds=[...(Array.isArray(input.leftTeam)?input.leftTeam:[input.left]),...(Array.isArray(input.rightTeam)?input.rightTeam:[input.right])];
-        if(allIds.length>16||allIds.some(id=>!idPattern.test(id||"")))return privateJson({error:"Equipo inválido."},400);
-        const ids={entities:[...new Set(allIds)],moves:[],abilities:[],effects:[]};
-        const catalog={entities:{},moves:{},abilities:{},effects:{},statuses:{},weathers:{},fields:{},scenarios:{}};
-        async function get(category,id) {
-          if (!idPattern.test(id||"")) throw Error("Referencia inválida: "+id);
-          if (catalog[category][id]) return catalog[category][id];
-          const entry=await env.EDITOR_DRAFTS.get(`catalog-v1:${category}:${id}`,"json");
-          if(!entry) throw Error("No existe "+category+" / "+id);
-          catalog[category][id]=entry; return entry;
-        }
-        try {
-          for (const id of ids.entities) {
-            const e=await get("entities",id),d=e.definition;
-            for(const mid of [...(d.moveIds||[]),d.uniqueMoveId]) await get("moves",mid);
-            for(const aid of [d.globalAbilityId,d.uniqueAbilityId]) await get("abilities",aid);
-          }
-          // Efectos reutilizados: profundidad de referencia acotada.
-          let pending=[...Object.values(catalog.moves),...Object.values(catalog.abilities)];
-          for(let depth=0;depth<5;depth++) {
-            const next=[];
-            for(const entry of pending) for(const rule of entry.definition.rules||[]) if(rule.action?.type==="apply_effect") {
-              const eid=rule.action.value;
-              if(!catalog.effects[eid]) next.push(await get("effects",eid));
-            }
-            pending=next;if(!next.length)break;
-          }
-          // Cargar los entornos referenciados por habilidades/ataques/efectos.
-          const seen=new Set();
-          for(const [category,id] of [['weathers',input.weather],['fields',input.field],['scenarios',input.scenario]])if(id)await get(category,id);
-          for(const category of ['moves','abilities','effects'])for(const entry of Object.values(catalog[category]))for(const rule of entry.definition.rules||[]){
-            const envCategory={set_weather:'weathers',set_field:'fields',set_scenario:'scenarios'}[rule.action?.type];
-            if(envCategory&&rule.action.value){const key=envCategory+':'+rule.action.value;if(!seen.has(key)){seen.add(key);await get(envCategory,rule.action.value);}}
-            if(rule.action?.type==='apply_status'&&rule.action.value){const key='statuses:'+rule.action.value;if(!seen.has(key)){seen.add(key);await get('statuses',rule.action.value);}}
-          }
-          const chart=await env.EDITOR_DRAFTS.get("type-chart-draft","json");
-          return privateJson(simulate({left:input.left,right:input.right,catalog,chart:chart?.chart||chart,turns:(input.turns === undefined || input.turns === null || input.turns === '') ? 10 : Math.min(50,Math.max(0,Number(input.turns))),randomTape:input.randomTape||[],weather:input.weather||"",field:input.field||"",scenario:input.scenario||"",leftMove:input.leftMove||"",rightMove:input.rightMove||"",leftTeam:input.leftTeam,rightTeam:input.rightTeam,leftOrders:input.leftOrders,rightOrders:input.rightOrders}));
-        } catch(e) { return privateJson({error:String(e.message||e)},400); }
-      }
-
-      // Catálogo privado de contenido. No ejecuta mecánicas en combate.
-      const CATALOG_CATEGORIES = ["effects", "moves", "abilities", "entities", "weathers", "fields", "scenarios", "statuses"];
-      const catalogMatch = url.pathname.match(/^\/editor-api\/catalog\/([a-z]+)(?:\/([a-z0-9]+(?:-[a-z0-9]+)*))?$/);
-      if (catalogMatch) {
-        const category = catalogMatch[1];
-        const id = catalogMatch[2];
-        if (!CATALOG_CATEGORIES.includes(category)) return privateJson({ error: "Categoría inválida." }, 404);
-        const prefix = `catalog-v1:${category}:`;
-        if (request.method === "GET" && !id) {
-          const listed = await env.EDITOR_DRAFTS.list({ prefix, limit: 1000 });
-          const entries = await Promise.all(listed.keys.map(async key => env.EDITOR_DRAFTS.get(key.name, "json")));
-          return privateJson({ ok: true, entries: entries.filter(Boolean), cursor: listed.list_complete ? null : listed.cursor });
-        }
-        if (request.method === "GET" && id) {
-          const entry = await env.EDITOR_DRAFTS.get(prefix + id, "json");
-          return entry ? privateJson({ ok: true, entry }) : privateJson({ error: "No encontrado." }, 404);
-        }
-        if (request.method === "PUT" && id) {
-          if (request.headers.get("Origin") !== url.origin) return privateJson({ error: "Origen no autorizado." }, 403);
-          const raw = await request.text();
-          if (raw.length > 60000) return privateJson({ error: "Contenido demasiado grande." }, 413);
-          let body;
-          try { body = JSON.parse(raw); } catch { return privateJson({ error: "JSON inválido." }, 400); }
-          if (!body || typeof body !== "object" || Array.isArray(body) || typeof body.name !== "string" || !body.name.trim() || body.name.length > 100 || typeof body.description !== "string" || body.description.length > 2000 || !body.definition || typeof body.definition !== "object" || Array.isArray(body.definition)) {
-            return privateJson({ error: "Se requiere nombre, descripción y definición como objeto." }, 400);
-          }
-          // Validaciones de referencias y rangos del editor, sin modificar balance.
-          const d=body.definition;
-          try { validateDefinition(category,d); } catch (error) { return privateJson({error:error.message},400); }
-          const slug=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-          const allTypes=["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","valor"];
-          if (category === "moves") {
-            if (!allTypes.includes(d.type)||!["physical","special","status"].includes(d.category)||!Number.isFinite(d.power)||d.power<0||d.power>500||!Number.isFinite(d.accuracy)||d.accuracy<0||d.accuracy>100||!Number.isFinite(d.criticalChance)||d.criticalChance<0||d.criticalChance>50||!Number.isInteger(d.priority)||d.priority< -5||d.priority>5) return privateJson({error:"Tipo, categoría, potencia, precisión, crítico o prioridad inválidos."},400);
-          }
-          if (category === "entities") {
-            if(!Array.isArray(d.types)||d.types.length<1||d.types.length>3||new Set(d.types).size!==d.types.length||d.types.some(t=>!allTypes.includes(t)))return privateJson({error:"Se requieren 1–3 tipos distintos y válidos."},400);
-            for(const stat of ["hp","attack","defense","specialAttack","specialDefense","speed"]){const max=stat==="hp"?500:200;if(!Number.isInteger(d[stat])||d[stat]<0||d[stat]>max)return privateJson({error:"Estadística inválida: "+stat+" (PS 0–500; demás 0–200)."},400);} if(["attack","defense","specialAttack","specialDefense","speed"].reduce((n,k)=>n+d[k],0)>1000)return privateJson({error:"Las cinco estadísticas base no pueden superar 1000 en total."},400);
-            if(!Array.isArray(d.moveIds)||d.moveIds.length!==3||new Set([...d.moveIds,d.uniqueMoveId]).size!==4)return privateJson({error:"Se requieren tres ataques globales y uno exclusivo, todos distintos."},400);
-            for(const [kind,ids] of [["moves",[...d.moveIds,d.uniqueMoveId]],["abilities",[d.globalAbilityId,d.uniqueAbilityId]]])for(const ref of ids) {
-              if(!slug.test(ref||""))return privateJson({error:"Referencia inválida: "+ref},400);
-              const found=await env.EDITOR_DRAFTS.get(`catalog-v1:${kind}:${ref}`,"json");
-              if(!found)return privateJson({error:`Falta ${kind} / ${ref}. Guardalo antes de crear la entidad.`},400);
-              const expected = kind==='moves' ? (ref===d.uniqueMoveId?'unique':'global') : (ref===d.uniqueAbilityId?'unique':'global');
-              if(found.definition.kind!==expected) return privateJson({error:`${kind} / ${ref}: la clase debe ser ${expected}.`},400);
-            }
-            if(d.spriteId && !slug.test(d.spriteId))return privateJson({error:"ID de sprite inválido."},400);
-          }
-          if(Array.isArray(d.rules))for(const rule of d.rules) {
-            if(!Number.isFinite(rule.chance??100)||(rule.chance??100)<0||(rule.chance??100)>100||!Number.isFinite(rule.duration??0)||(rule.duration??0)<0||!Number.isFinite(rule.limit??0)||(rule.limit??0)<0)return privateJson({error:"Probabilidad, duración o límite inválidos."},400);
-            if(rule.action?.type==="apply_effect" && rule.action.value && !await env.EDITOR_DRAFTS.get(`catalog-v1:effects:${rule.action.value}`,"json"))return privateJson({error:"Guardá primero el efecto "+rule.action.value},400);
-          }
-          const entry = { id, category, name: body.name.trim(), description: body.description, definition: body.definition, updatedAt: new Date().toISOString() };
-          await env.EDITOR_DRAFTS.put(prefix + id, JSON.stringify(entry));
-          return privateJson({ ok: true, entry });
-        }
-        if (request.method === "DELETE" && id) {
-          if (request.headers.get("Origin") !== url.origin) return privateJson({ error: "Origen no autorizado." }, 403);
-          await env.EDITOR_DRAFTS.delete(prefix + id);
-          return privateJson({ ok: true });
-        }
-        return privateJson({ error: "Método no permitido." }, 405);
-      }
-
-      // Recuperar tabla privada.
-      if (
-        url.pathname === "/editor-api/type-chart" &&
-        request.method === "GET"
-      ) {
-        const saved = await env.EDITOR_DRAFTS.get(
-          "type-chart-draft",
-          "json"
-        );
-
-        // Compatibilidad: conservar las relaciones guardadas cuando el tipo
-        // antes llamado "aire" pasa a llamarse "viento".
-        const chart = createDefaultTypeChart();
-        if (saved?.chart) {
-          for (const attack of TYPES) {
-            for (const defense of TYPES) {
-              const oldAttacks=[attack,attack==='viento'?'aire':attack,attack==='valor'?'espiritu':attack];
-              const oldDefenses=[defense,defense==='viento'?'aire':defense,defense==='valor'?'espiritu':defense];
-              let value;for(const oa of oldAttacks){for(const od of oldDefenses){value ??= saved.chart[oa]?.[od];}}
-              if (TYPE_VALUES.includes(value)) chart[attack][defense] = value;
-            }
-          }
-        }
-        // No reescribir KV en GET: se migra al guardar el siguiente cambio.
-        return privateJson({
-          ok: true,
-          types: TYPES,
-          chart,
-          updatedAt: saved?.updatedAt || null
-        });
-      }
-
-      // Guardar tabla privada.
-      if (
-        url.pathname === "/editor-api/type-chart" &&
-        request.method === "PUT"
-      ) {
-        if (request.headers.get("Origin") !== url.origin) {
-          return privateJson({
-            error: "Origen no autorizado."
-          }, 403);
-        }
-
-        let body;
-
-        try {
-          body = await request.json();
-        } catch {
-          return privateJson({
-            error: "JSON inválido."
-          }, 400);
-        }
-
-        const chart = body?.chart;
-
-        if (
-          !chart ||
-          typeof chart !== "object" ||
-          Array.isArray(chart)
-        ) {
-          return privateJson({
-            error: "Tabla inválida."
-          }, 400);
-        }
-
-        // Validar las 400 relaciones.
-        for (const attackType of TYPES) {
-          const row = chart[attackType];
-
-          if (
-            !row ||
-            typeof row !== "object" ||
-            Array.isArray(row)
-          ) {
-            return privateJson({
-              error: "Falta una fila de la tabla."
-            }, 400);
-          }
-
-          for (const defenseType of TYPES) {
-            if (
-              !TYPE_VALUES.includes(row[defenseType])
-            ) {
-              return privateJson({
-                error: "Hay una relación de tipos inválida."
-              }, 400);
-            }
-          }
-        }
-
-        const draft = {
-          chart,
-          updatedAt: new Date().toISOString()
-        };
-
-        await env.EDITOR_DRAFTS.put(
-          "type-chart-draft",
-          JSON.stringify(draft)
-        );
-
-        return privateJson({
-          ok: true,
-          message: "Tabla de tipos guardada.",
-          updatedAt: draft.updatedAt
-        });
-      }
-      if (
-        url.pathname === "/editor-api/draft" &&
-        request.method === "GET"
-      ) {
-        const draft = await env.EDITOR_DRAFTS.get(
-          "main-draft",
-          "json"
-        );
-
-        return privateJson({
-          ok: true,
-          draft: draft || {
-            notes: "",
-            updatedAt: null
-          }
-        });
-      }
-
-      // Guardar borrador.
-      if (
-        url.pathname === "/editor-api/draft" &&
-        request.method === "PUT"
-      ) {
-        const contentLength = Number(
-          request.headers.get("Content-Length") || 0
-        );
-
-        if (contentLength > 100000) {
-          return privateJson({
-            error: "El borrador es demasiado grande."
-          }, 413);
-        }
-
-        let body;
-
-        try {
-          const raw = await request.text();
-
-          if (raw.length > 100000) {
-            return privateJson({
-              error: "El borrador es demasiado grande."
-            }, 413);
-          }
-
-          body = JSON.parse(raw);
-        } catch {
-          return privateJson({
-            error: "JSON inválido."
-          }, 400);
-        }
-
-        if (
-          !body ||
-          typeof body !== "object" ||
-          Array.isArray(body) ||
-          typeof body.notes !== "string" ||
-          body.notes.length > 50000
-        ) {
-          return privateJson({
-            error: "Formato de borrador inválido."
-          }, 400);
-        }
-
-        const draft = {
-          notes: body.notes,
-          updatedAt: new Date().toISOString()
-        };
-
-        await env.EDITOR_DRAFTS.put(
-          "main-draft",
-          JSON.stringify(draft)
-        );
-
-        return privateJson({
-          ok: true,
-          message: "Borrador guardado.",
-          updatedAt: draft.updatedAt
-        });
-      }
-
-      return privateJson({
-        error: "Ruta privada no encontrada."
-      }, 404);
+    const catMatch=url.pathname.match(/^\/api\/catalog\/(alpha01-[a-z0-9-]+)$/i);
+    if(catMatch&&request.method==="GET"){
+      try{return json(publicCatalog(await snapshot(env,catMatch[1])));}catch(e){return json({error:e.message},404);}
     }
-
-    // Rutas públicas existentes.
-    if (request.method === "OPTIONS") {
-      return new Response(null, { headers: cors });
+    const spriteMatch=url.pathname.match(/^\/api\/sprites\/([a-z0-9]+(?:-[a-z0-9]+)*)$/);
+    if(spriteMatch&&request.method==="GET"){
+      if(!env.PUBLIC_SPRITES)return json({error:"Sprites públicos no conectados."},503);
+      try{
+        const requestedRevision=url.searchParams.get("revision")||"";
+        const s=await snapshot(env,requestedRevision||undefined),id=spriteMatch[1];
+        const published=Object.values(s.catalog?.entities||{}).some(e=>e?.definition?.spriteId===id);
+        if(!published)return json({error:"Sprite no publicado."},404);
+        const obj=await env.PUBLIC_SPRITES.get(`drafts/${id}.png`);if(!obj)return json({error:"Sprite no encontrado."},404);
+        return new Response(obj.body,{headers:{"Content-Type":"image/png","Cache-Control":"public, max-age=3600","X-Content-Type-Options":"nosniff"}});
+      }catch(e){return json({error:e.message},404);}
     }
-
-    if (url.pathname === "/health") {
-      return json({
-        ok: true,
-        service: "Duelo Pixel Rooms",
-        version: 1
-      });
+    const typeMatch=url.pathname.match(/^\/api\/type-icons\/([a-z]+)$/);
+    if(typeMatch&&request.method==="GET"){
+      if(!TYPES.has(typeMatch[1]))return json({error:"Tipo desconocido."},404);
+      if(!env.PUBLIC_SPRITES)return json({error:"Sprites públicos no conectados."},503);
+      const obj=await env.PUBLIC_SPRITES.get(`type-icons/${typeMatch[1]}.png`);if(!obj)return json({error:"Icono no encontrado."},404);
+      return new Response(obj.body,{headers:{"Content-Type":"image/png","Cache-Control":"public, max-age=3600","X-Content-Type-Options":"nosniff"}});
     }
-
-    // Crear una sala.
-    if (
-      url.pathname === "/api/rooms" &&
-      request.method === "POST"
-    ) {
-      let body = {};
-
-      try {
-        body = await request.json();
-      } catch {}
-
-      const code = makeCode();
-      const id = env.ROOMS.idFromName(code);
-      const stub = env.ROOMS.get(id);
-
-      const init = await stub.fetch(
-        "https://room.internal/init",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            code,
-            createdAt: Date.now(),
-            hostName: cleanName(body.name)
-          })
-        }
-      );
-
-      if (!init.ok) {
-        return json({
-          error: "No se pudo crear la sala."
-        }, 500);
-      }
-
-      return json({ code });
+    if(url.pathname==="/api/rooms"&&request.method==="POST"){
+      let body={};try{body=await request.json();}catch{}
+      const code=makeCode(),id=env.ROOMS.idFromName(code),stub=env.ROOMS.get(id);
+      const init=await stub.fetch("https://room.internal/init",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code,createdAt:Date.now(),hostName:cleanName(body.name)})});
+      if(!init.ok)return json({error:"No se pudo crear la sala."},500);
+      return json({code});
     }
-
-    // Conectar jugadores a una sala.
-    const match = url.pathname.match(
-      /^\/api\/rooms\/([A-Z0-9]{6})$/i
-    );
-
-    if (match) {
-      const code = match[1].toUpperCase();
-      const id = env.ROOMS.idFromName(code);
-      const stub = env.ROOMS.get(id);
-
-      const target = new URL(request.url);
-
-      target.pathname = "/connect";
-      target.searchParams.set("code", code);
-      target.searchParams.set(
-        "name",
-        cleanName(url.searchParams.get("name"))
-      );
-
-      return stub.fetch(
-        new Request(target, request)
-      );
+    const roomMatch=url.pathname.match(/^\/api\/rooms\/([A-Z0-9]{6})$/i);
+    if(roomMatch){
+      const code=roomMatch[1].toUpperCase(),id=env.ROOMS.idFromName(code),stub=env.ROOMS.get(id),target=new URL(request.url);
+      target.pathname="/connect";target.searchParams.set("code",code);target.searchParams.set("name",cleanName(url.searchParams.get("name")));
+      return stub.fetch(new Request(target,request));
     }
-
-    if (env.ASSETS) {
-      return env.ASSETS.fetch(request);
-    }
-
-    return json({
-      error: "Ruta no encontrada."
-    }, 404);
+    if(env.ASSETS)return env.ASSETS.fetch(request);
+    return json({error:"Ruta no encontrada."},404);
   }
 };
 
-// Generar código de sala.
-function makeCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = new Uint8Array(6);
-
-  crypto.getRandomValues(bytes);
-
-  return [...bytes]
-    .map(x => chars[x % chars.length])
-    .join("");
-}
-
-function cleanName(value) {
-  const name = String(value || "Jugador")
-    .trim()
-    .replace(/[<>\u0000-\u001f]/g, "")
-    .slice(0, 20);
-
-  return name || "Jugador";
-}
-
-// Sistema de salas online.
 export class Room {
-  constructor(state) {
-    this.state = state;
-    this.storage = state.storage;
-  }
-
-  async fetch(request) {
-    const url = new URL(request.url);
-
-    if (
-      url.pathname === "/init" &&
-      request.method === "POST"
-    ) {
-      const body = await request.json();
-      const current = await this.storage.get("room");
-
-      if (!current) {
-        await this.storage.put("room", {
-          code: body.code,
-          createdAt: body.createdAt,
-          players: []
-        });
-
-        await this.state.storage.setAlarm(
-          Date.now() + 6 * 60 * 60 * 1000
-        );
-      }
-
+  constructor(state,env){this.state=state;this.storage=state.storage;this.env=env;}
+  async fetch(request){
+    const url=new URL(request.url);
+    if(url.pathname==="/init"&&request.method==="POST"){
+      const body=await request.json(),current=await this.storage.get("room");
+      if(!current){await this.storage.put("room",{code:body.code,createdAt:body.createdAt,players:[],battle:null});await this.storage.setAlarm(Date.now()+6*60*60*1000);}
       return new Response("ok");
     }
-
-    if (url.pathname !== "/connect") {
-      return new Response("Not found", {
-        status: 404
-      });
-    }
-
-    if (
-      request.headers.get("Upgrade") !== "websocket"
-    ) {
-      return new Response(
-        "Se requiere WebSocket",
-        { status: 426 }
-      );
-    }
-
-    const room = await this.storage.get("room");
-
-    if (!room) {
-      return new Response(
-        JSON.stringify({
-          error: "La sala no existe o expiró."
-        }),
-        {
-          status: 404,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
-    }
-
-    const sockets = this.state.getWebSockets();
-
-    if (sockets.length >= 2) {
-      return new Response(
-        JSON.stringify({
-          error: "La sala ya tiene dos jugadores."
-        }),
-        {
-          status: 409,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
-    }
-
-    const used = sockets.map(s => {
-      try {
-        return s.deserializeAttachment()?.role;
-      } catch {
-        return null;
-      }
-    });
-
-    const role = used.includes("host")
-      ? "guest"
-      : "host";
-
-    const pair = new WebSocketPair();
-
-    const client = pair[0];
-    const server = pair[1];
-
-    this.state.acceptWebSocket(server);
-
-    server.serializeAttachment({
-      role,
-      name: cleanName(url.searchParams.get("name"))
-    });
-
-    const updated = await this.getRoom();
-
-    updated.players = (
-      updated.players || []
-    ).filter(p => p.role !== role);
-
-    updated.players.push({
-      role,
-      name: cleanName(url.searchParams.get("name")),
-      ready: false,
-      team: []
-    });
-
-    await this.storage.put("room", updated);
-
-    this.send(server, {
-      type: "welcome",
-      role,
-      code: updated.code
-    });
-
-    this.broadcast({
-      type: "room",
-      room: this.publicRoom(updated)
-    });
-
-    return new Response(null, {
-      status: 101,
-      webSocket: client
-    });
+    if(url.pathname!=="/connect")return new Response("Not found",{status:404});
+    if(request.headers.get("Upgrade")!=="websocket")return new Response("Se requiere WebSocket",{status:426});
+    const room=await this.getRoom();if(!room.code)return new Response(JSON.stringify({error:"La sala no existe o expiró."}),{status:404,headers:{"Content-Type":"application/json"}});
+    const sockets=this.state.getWebSockets();if(sockets.length>=2)return new Response(JSON.stringify({error:"La sala ya tiene dos jugadores conectados."}),{status:409,headers:{"Content-Type":"application/json"}});
+    const used=sockets.map(s=>{try{return s.deserializeAttachment()?.role}catch{return null}});
+    const role=used.includes("host")?"guest":"host",name=cleanName(url.searchParams.get("name"));
+    const pair=new WebSocketPair(),client=pair[0],server=pair[1];this.state.acceptWebSocket(server);server.serializeAttachment({role,name});
+    let player=(room.players||[]).find(p=>p.role===role);
+    if(player){player.name=name;player.connected=true;}else{player={role,name,ready:false,team:[],connected:true};room.players.push(player);}
+    await this.storage.put("room",room);
+    this.send(server,{type:"welcome",role,code:room.code});
+    this.send(server,{type:"room",room:this.publicRoom(room)});
+    if(room.battle)this.send(server,{type:"battle_sync",battle:this.publicBattle(room,role)});
+    this.broadcastRoom(room);
+    return new Response(null,{status:101,webSocket:client});
   }
-
-  async webSocketMessage(socket, message) {
-    let data;
-
-    try {
-      data = JSON.parse(
-        typeof message === "string"
-          ? message
-          : new TextDecoder().decode(message)
-      );
-    } catch {
-      return;
-    }
-
-    const attachment =
-      socket.deserializeAttachment() || {};
-
-    const role = attachment.role;
-
-    if (!role) return;
-
-    const room = await this.getRoom();
-
-    const player = (
-      room.players || []
-    ).find(p => p.role === role);
-
-    if (!player) return;
-
-    if (data.type === "ready") {
-      player.ready = !!data.ready;
-
-    } else if (data.type === "team") {
-      if (
-        !Array.isArray(data.team) ||
-        data.team.length !== 8 ||
-        data.team.some(
-          x => typeof x !== "string" ||
-          x.length > 100
-        )
-      ) {
-        this.send(socket, {
-          type: "error",
-          message:
-            "El equipo debe contener exactamente 8 identificadores de criatura."
-        });
-        return;
-      }
-
-      player.team = [...new Set(data.team)];
-
-      if (player.team.length !== 8) {
-        this.send(socket, {
-          type: "error",
-          message:
-            "El equipo no puede tener criaturas duplicadas."
-        });
-        return;
-      }
-
-    } else if (data.type === "chat") {
-      const text = String(data.text || "")
-        .trim()
-        .slice(0, 240);
-
-      if (text) {
-        this.broadcast({
-          type: "chat",
-          role,
-          name: player.name,
-          text,
-          at: Date.now()
-        });
-      }
-
-      return;
-
-    } else if (data.type === "ping") {
-      this.send(socket, {
-        type: "pong",
-        at: Date.now()
-      });
-      return;
-
-    } else {
-      this.send(socket, {
-        type: "error",
-        message:
-          "Mensaje no reconocido por el servidor."
-      });
-      return;
-    }
-
-    await this.storage.put("room", room);
-
-    this.broadcast({
-      type: "room",
-      room: this.publicRoom(room)
-    });
-
-    if (
-      room.players.length === 2 &&
-      room.players.every(
-        p => p.ready && p.team.length === 8
-      )
-    ) {
-      this.broadcast({
-        type: "ready_to_battle",
-        message:
-          "Ambos jugadores están listos. La sala está preparada para iniciar el combate online."
-      });
-    }
+  async webSocketMessage(socket,message){
+    let data;try{data=JSON.parse(typeof message==="string"?message:new TextDecoder().decode(message));}catch{return;}
+    const att=socket.deserializeAttachment()||{},role=att.role;if(!role)return;
+    const room=await this.getRoom(),player=(room.players||[]).find(p=>p.role===role);if(!player)return;
+    if(data.type==="ping"){this.send(socket,{type:"pong",at:Date.now()});return;}
+    if(data.type==="chat"){const text=String(data.text||"").trim().slice(0,240);if(text)this.broadcast({type:"chat",role,name:player.name,text,at:Date.now()});return;}
+    if(data.type==="team"){
+      if(room.battle?.status==="playing"){this.send(socket,{type:"error",message:"No podés cambiar el equipo durante una batalla."});return;}
+      let s;try{s=await snapshot(this.env);}catch(e){this.send(socket,{type:"error",message:e.message});return;}
+      if(!Array.isArray(data.team)||data.team.length!==8||new Set(data.team).size!==8||data.team.some(id=>!ID.test(id||"")||!s.catalog?.entities?.[id])){this.send(socket,{type:"error",message:"El equipo debe contener 8 personajes publicados distintos."});return;}
+      player.team=[...data.team];player.ready=false;
+    } else if(data.type==="ready"){
+      if(player.team.length!==8){this.send(socket,{type:"error",message:"Guardá un equipo de 8 antes de marcarte listo."});return;}
+      player.ready=!!data.ready;
+    } else if(data.type==="order"){
+      await this.handleOrder(socket,room,role,data.order);return;
+    } else if(data.type==="surrender"){
+      if(room.battle?.status!=="playing")return;
+      room.battle.status="finished";room.battle.winner=role==="host"?"guest":"host";room.battle.finishReason="surrender";
+      await this.storage.put("room",room);this.broadcastBattle(room,"battle_result",{reason:"surrender"});return;
+    } else {this.send(socket,{type:"error",message:"Mensaje no reconocido por el servidor."});return;}
+    await this.storage.put("room",room);this.broadcastRoom(room);await this.maybeStartBattle(room);
   }
-
-  async alarm() {
-    for (
-      const socket of this.state.getWebSockets()
-    ) {
-      try {
-        socket.close(1000, "Sala expirada");
-      } catch {}
-    }
-
-    await this.storage.delete("room");
+  async maybeStartBattle(room){
+    if(room.battle?.status==="playing"||room.battle?.status==="finished")return;
+    const host=room.players.find(p=>p.role==="host"),guest=room.players.find(p=>p.role==="guest");
+    if(!host||!guest||!host.ready||!guest.ready||host.team.length!==8||guest.team.length!==8)return;
+    let s;try{s=await snapshot(this.env);}catch(e){this.broadcast({type:"error",message:e.message});return;}
+    if([...host.team,...guest.team].some(id=>!s.catalog.entities[id])){this.broadcast({type:"error",message:"Uno de los equipos contiene contenido que ya no está publicado."});return;}
+    try{
+      const result=simulate({left:host.team[0],right:guest.team[0],leftTeam:host.team,rightTeam:guest.team,catalog:s.catalog,chart:s.chart,turns:0,leftOrders:[],rightOrders:[],randomTape:[]});
+      room.battle={status:result.winner?"finished":"playing",revision:s.revision,round:1,leftOrders:[],rightOrders:[],pending:{host:null,guest:null},randomTape:result.randomTape,logLength:result.log.length,lastState:compactResult(result),recentLog:result.log.slice(-100),winner:result.winner==="left"?"host":result.winner==="right"?"guest":null,finishReason:result.winner?"ko":null};
+      await this.storage.put("room",room);this.broadcastBattle(room,"battle_start",{logs:result.log,visualEvents:result.visualEvents});
+    }catch(e){this.broadcast({type:"error",message:"No se pudo iniciar: "+String(e.message||e)});}
   }
-
-  async webSocketClose(socket) {
-    await this.removeSocket(socket);
+  async handleOrder(socket,room,role,order){
+    const b=room.battle;if(!b||b.status!=="playing"){this.send(socket,{type:"error",message:"La batalla todavía no está activa."});return;}
+    if(b.pending?.[role]){this.send(socket,{type:"error",message:"Ya elegiste una acción para esta ronda."});return;}
+    if(!order||typeof order!=="object"||Array.isArray(order)){this.send(socket,{type:"error",message:"Acción inválida."});return;}
+    const state=b.lastState,unit=role==="host"?state.left:state.right,team=role==="host"?state.leftTeam:state.rightTeam;
+    if(order.move!==undefined){
+      if(typeof order.move!=="string"||!ID.test(order.move)){this.send(socket,{type:"error",message:"Movimiento inválido."});return;}
+      let s;try{s=await snapshot(this.env,b.revision);}catch(e){this.send(socket,{type:"error",message:e.message});return;}
+      const ent=s.catalog.entities[unit.id],allowed=[...(ent?.definition?.moveIds||[]),ent?.definition?.uniqueMoveId].filter(Boolean);
+      if(!allowed.includes(order.move)){this.send(socket,{type:"error",message:"Ese movimiento no pertenece al personaje activo."});return;}
+      order={move:order.move};
+    } else if(order.switch!==undefined){
+      const i=Number(order.switch),activeIndex=team.findIndex(x=>x.id===unit.id);
+      if(!Number.isInteger(i)||i<0||i>=team.length||i===activeIndex||team[i].hp<=0){this.send(socket,{type:"error",message:"Cambio inválido."});return;}
+      order={switch:i};
+    } else {this.send(socket,{type:"error",message:"Elegí un movimiento o un cambio."});return;}
+    b.pending[role]=order;await this.storage.put("room",room);this.send(socket,{type:"order_accepted",round:b.round});
+    this.broadcast({type:"battle_waiting",round:b.round,host:!!b.pending.host,guest:!!b.pending.guest});
+    if(b.pending.host&&b.pending.guest)await this.resolveRound(room);
   }
-
-  async webSocketError(socket) {
-    await this.removeSocket(socket);
+  async resolveRound(room){
+    const b=room.battle,host=room.players.find(p=>p.role==="host"),guest=room.players.find(p=>p.role==="guest");if(!b||!host||!guest)return;
+    try{
+      const s=await snapshot(this.env,b.revision),leftOrders=[...b.leftOrders,b.pending.host],rightOrders=[...b.rightOrders,b.pending.guest];
+      const result=simulate({left:host.team[0],right:guest.team[0],leftTeam:host.team,rightTeam:guest.team,catalog:s.catalog,chart:s.chart,turns:b.round,leftOrders,rightOrders,randomTape:b.randomTape});
+      const start=b.logLength||0,newLogs=result.log.slice(start),newVisual=result.visualEvents.filter(e=>e.logIndex>=start);
+      b.leftOrders=leftOrders;b.rightOrders=rightOrders;b.randomTape=result.randomTape;b.logLength=result.log.length;b.lastState=compactResult(result);b.recentLog=[...(b.recentLog||[]),...newLogs].slice(-120);b.pending={host:null,guest:null};
+      if(result.winner){b.status="finished";b.winner=result.winner==="left"?"host":"guest";b.finishReason="ko";}else b.round++;
+      await this.storage.put("room",room);this.broadcastBattle(room,result.winner?"battle_result":"battle_round",{logs:newLogs,visualEvents:newVisual,logStart:start});
+    }catch(e){b.pending={host:null,guest:null};await this.storage.put("room",room);this.broadcast({type:"error",message:"No se pudo resolver la ronda: "+String(e.message||e)});}
   }
-
-  async removeSocket(socket) {
-    let attachment = {};
-
-    try {
-      attachment =
-        socket.deserializeAttachment() || {};
-    } catch {}
-
-    const room = await this.getRoom();
-
-    room.players = (
-      room.players || []
-    ).filter(
-      p => p.role !== attachment.role
-    );
-
-    await this.storage.put("room", room);
-
-    this.broadcast({
-      type: "room",
-      room: this.publicRoom(room)
-    });
-
-    this.broadcast({
-      type: "notice",
-      message:
-        "Un jugador se desconectó. La sala seguirá abierta para volver a entrar."
-    });
-  }
-
-  async getRoom() {
-    return (
-      await this.storage.get("room")
-    ) || {
-      code: "",
-      players: []
-    };
-  }
-
-  publicRoom(room) {
-    return {
-      code: room.code,
-      players: (
-        room.players || []
-      ).map(p => ({
-        role: p.role,
-        name: p.name,
-        ready: !!p.ready,
-        teamCount: (
-          p.team || []
-        ).length
-      })),
-      capacity: 2
-    };
-  }
-
-  send(socket, data) {
-    try {
-      socket.send(JSON.stringify(data));
-    } catch {}
-  }
-
-  broadcast(data) {
-    for (
-      const socket of this.state.getWebSockets()
-    ) {
-      this.send(socket, data);
-    }
-  }
+  publicBattle(room,role){const b=room.battle;if(!b)return null;return {status:b.status,revision:b.revision,round:b.round,state:b.lastState,recentLog:b.recentLog||[],winner:b.winner||null,finishReason:b.finishReason||null,submitted:!!b.pending?.[role],opponentSubmitted:!!b.pending?.[role==="host"?"guest":"host"]};}
+  broadcastBattle(room,type,extra={}){for(const s of this.state.getWebSockets()){let role;try{role=s.deserializeAttachment()?.role}catch{}if(role)this.send(s,{type,battle:this.publicBattle(room,role),...extra});}}
+  broadcastRoom(room){this.broadcast({type:"room",room:this.publicRoom(room)});}
+  publicRoom(room){return {code:room.code,players:(room.players||[]).map(p=>({role:p.role,name:p.name,ready:!!p.ready,teamCount:(p.team||[]).length,connected:!!p.connected})),capacity:2,battleStatus:room.battle?.status||null};}
+  async webSocketClose(socket){await this.removeSocket(socket);} async webSocketError(socket){await this.removeSocket(socket);}
+  async removeSocket(socket){let a={};try{a=socket.deserializeAttachment()||{}}catch{}const room=await this.getRoom(),p=(room.players||[]).find(x=>x.role===a.role);if(p)p.connected=false;await this.storage.put("room",room);this.broadcastRoom(room);this.broadcast({type:"notice",message:"Un jugador se desconectó. Puede volver a entrar con el mismo código."});}
+  async alarm(){for(const socket of this.state.getWebSockets()){try{socket.close(1000,"Sala expirada")}catch{}}await this.storage.delete("room");}
+  async getRoom(){return (await this.storage.get("room"))||{code:"",players:[],battle:null};}
+  send(socket,data){try{socket.send(JSON.stringify(data))}catch{}}
+  broadcast(data){for(const socket of this.state.getWebSockets())this.send(socket,data);}
 }
-
