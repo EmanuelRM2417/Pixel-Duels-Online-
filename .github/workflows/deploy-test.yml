@@ -8,8 +8,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Descargar repositorio
+      - name: Descargar editor-privado
         uses: actions/checkout@v4
+        with:
+          ref: editor-privado
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
