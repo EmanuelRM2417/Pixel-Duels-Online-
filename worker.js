@@ -5,15 +5,55 @@ const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:
 const TYPES=new Set(["fuego","planta","roca","hielo","rayo","metal","guerra","mente","encanto","espectro","divinidad","luz","oscuridad","viento","dragon","agua","veneno","tecnologia","agilidad","valor"]);
 const ID=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-async function pointer(env){return env.PUBLIC_CONTENT?.get("public-v1:current","json");}
+const CATALOG_CATEGORIES=["entities","moves","abilities","effects","statuses","weathers","fields","scenarios"];
+
+async function listAll(env,prefix){
+  if(!env.PUBLIC_CONTENT)throw Error("Contenido público no conectado.");
+  const out=[];let cursor;
+  do{
+    const page=await env.PUBLIC_CONTENT.list({prefix,limit:1000,...(cursor?{cursor}:{})});
+    const values=await Promise.all(page.keys.map(k=>env.PUBLIC_CONTENT.get(k.name,"json")));
+    out.push(...values.filter(Boolean));
+    cursor=page.list_complete?undefined:page.cursor;
+  }while(cursor);
+  return out;
+}
+async function revisionFrom(catalog,chartDraft){
+  const signature=CATALOG_CATEGORIES.map(category=>category+":"+Object.values(catalog[category]||{}).sort((a,b)=>a.id.localeCompare(b.id)).map(e=>`${e.id}@${e.updatedAt||""}`).join(",")).join("|")+`|chart:${chartDraft?.updatedAt||""}`;
+  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(signature));
+  const hex=[...new Uint8Array(digest)].slice(0,10).map(b=>b.toString(16).padStart(2,"0")).join("");
+  return `draft-${hex}`;
+}
+export async function loadLiveContent(env){
+  if(!env.PUBLIC_CONTENT)throw Error("Contenido público no conectado.");
+  const catalog={};let latest="";
+  for(const category of CATALOG_CATEGORIES){
+    const entries=await listAll(env,`catalog-v1:${category}:`);
+    catalog[category]=Object.fromEntries(entries.map(e=>[e.id,e]));
+    for(const e of entries)if(e?.updatedAt&&e.updatedAt>latest)latest=e.updatedAt;
+  }
+  const chartDraft=await env.PUBLIC_CONTENT.get("type-chart-draft","json");
+  if(chartDraft?.updatedAt&&chartDraft.updatedAt>latest)latest=chartDraft.updatedAt;
+  if(!Object.keys(catalog.entities).length)throw Error("El editor todavía no tiene personajes guardados.");
+  if(!Object.keys(catalog.moves).length)throw Error("El editor todavía no tiene movimientos guardados.");
+  const chart=chartDraft?.chart||chartDraft;
+  if(!chart||typeof chart!=="object")throw Error("La tabla de tipos todavía no está guardada.");
+  latest=latest||new Date().toISOString();
+  return {ok:true,version:"0.1.0-alpha",revision:await revisionFrom(catalog,chartDraft),publishedAt:latest,types:[...TYPES],chart,catalog};
+}
 async function snapshot(env,revision){
   if(!env.PUBLIC_CONTENT)throw Error("Contenido público no conectado.");
-  let rev=revision;
-  if(!rev){const p=await pointer(env);rev=p?.revision;}
-  if(!rev||!/^[a-z0-9-]{1,80}$/.test(rev))throw Error("Todavía no hay una Alpha publicada.");
-  const value=await env.PUBLIC_CONTENT.get(`public-v1:snapshot:${rev}`,"json");
-  if(!value)throw Error("La revisión publicada ya no está disponible.");
-  return value;
+  if(revision){
+    if(!/^[a-z0-9-]{1,80}$/.test(revision))throw Error("Revisión inválida.");
+    const frozen=await env.PUBLIC_CONTENT.get(`public-runtime:snapshot:${revision}`,"json");
+    if(frozen)return frozen;
+  }
+  const live=await loadLiveContent(env);
+  if(revision&&live.revision!==revision)throw Error("La revisión de esta batalla ya no está disponible.");
+  return live;
+}
+async function freezeSnapshot(env,s){
+  await env.PUBLIC_CONTENT.put(`public-runtime:snapshot:${s.revision}`,JSON.stringify(s),{expirationTtl:2592000});
 }
 function publicCatalog(s){return {ok:true,version:s.version,revision:s.revision,publishedAt:s.publishedAt,types:s.types,chart:s.chart,catalog:s.catalog};}
 function cleanName(value){const name=String(value||"Jugador").trim().replace(/[<>\u0000-\u001f]/g,"").slice(0,20);return name||"Jugador";}
@@ -25,13 +65,13 @@ export default {
     const url=new URL(request.url);
     if(request.method==="OPTIONS")return new Response(null,{headers:cors});
     if(url.pathname==="/health"){
-      const p=await pointer(env);
-      return json({ok:true,service:"Universal Duels",version:"0.1.0-alpha",publishedRevision:p?.revision||null});
+      try{const s=await loadLiveContent(env);return json({ok:true,service:"Universal Duels",version:"0.1.0-alpha",revision:s.revision,source:"editor-kv-readonly"});}
+      catch(e){return json({ok:false,service:"Universal Duels",version:"0.1.0-alpha",error:e.message},503);}
     }
     if(url.pathname==="/api/catalog"&&request.method==="GET"){
       try{return json(publicCatalog(await snapshot(env)));}catch(e){return json({error:e.message},503);}
     }
-    const catMatch=url.pathname.match(/^\/api\/catalog\/(alpha01-[a-z0-9-]+)$/i);
+    const catMatch=url.pathname.match(/^\/api\/catalog\/([a-z0-9-]{1,80})$/i);
     if(catMatch&&request.method==="GET"){
       try{return json(publicCatalog(await snapshot(env,catMatch[1])));}catch(e){return json({error:e.message},404);}
     }
@@ -90,6 +130,7 @@ export class Room {
     const pair=new WebSocketPair(),client=pair[0],server=pair[1];this.state.acceptWebSocket(server);server.serializeAttachment({role,name});
     let player=(room.players||[]).find(p=>p.role===role);
     if(player){player.name=name;player.connected=true;}else{player={role,name,ready:false,team:[],connected:true};room.players.push(player);}
+    if(room.battle?.selection)room.battle.selection[role]=null;
     await this.storage.put("room",room);
     this.send(server,{type:"welcome",role,code:room.code});
     this.send(server,{type:"room",room:this.publicRoom(room)});
@@ -111,6 +152,20 @@ export class Room {
     } else if(data.type==="ready"){
       if(player.team.length!==8){this.send(socket,{type:"error",message:"Guardá un equipo de 8 antes de marcarte listo."});return;}
       player.ready=!!data.ready;
+    } else if(data.type==="select_order"){
+      if(room.battle?.status!=="playing"){this.send(socket,{type:"error",message:"La batalla todavía no está activa."});return;}
+      try{
+        const normalized=await this.normalizeOrder(room,role,data.order);
+        room.battle.selection=room.battle.selection||{host:null,guest:null};room.battle.selection[role]=normalized;
+        await this.storage.put("room",room);this.send(socket,{type:"selection_accepted",round:room.battle.round});
+        this.broadcast({type:"battle_selection",round:room.battle.round,host:!!room.battle.selection.host,guest:!!room.battle.selection.guest});
+      }catch(e){this.send(socket,{type:"error",message:String(e.message||e)});}return;
+    } else if(data.type==="cancel_selection"){
+      if(room.battle?.status!=="playing")return;
+      room.battle.selection=room.battle.selection||{host:null,guest:null};
+      if(room.battle.pending?.[role]){this.send(socket,{type:"error",message:"La acción ya fue enviada para esta ronda."});return;}
+      room.battle.selection[role]=null;await this.storage.put("room",room);
+      this.broadcast({type:"battle_selection",round:room.battle.round,host:!!room.battle.selection.host,guest:!!room.battle.selection.guest});return;
     } else if(data.type==="order"){
       await this.handleOrder(socket,room,role,data.order);return;
     } else if(data.type==="surrender"){
@@ -127,27 +182,38 @@ export class Room {
     let s;try{s=await snapshot(this.env);}catch(e){this.broadcast({type:"error",message:e.message});return;}
     if([...host.team,...guest.team].some(id=>!s.catalog.entities[id])){this.broadcast({type:"error",message:"Uno de los equipos contiene contenido que ya no está publicado."});return;}
     try{
+      await freezeSnapshot(this.env,s);
       const result=simulate({left:host.team[0],right:guest.team[0],leftTeam:host.team,rightTeam:guest.team,catalog:s.catalog,chart:s.chart,turns:0,leftOrders:[],rightOrders:[],randomTape:[]});
-      room.battle={status:result.winner?"finished":"playing",revision:s.revision,round:1,leftOrders:[],rightOrders:[],pending:{host:null,guest:null},randomTape:result.randomTape,logLength:result.log.length,lastState:compactResult(result),recentLog:result.log.slice(-100),winner:result.winner==="left"?"host":result.winner==="right"?"guest":null,finishReason:result.winner?"ko":null};
+      room.battle={status:result.winner?"finished":"playing",revision:s.revision,round:1,leftOrders:[],rightOrders:[],pending:{host:null,guest:null},selection:{host:null,guest:null},randomTape:result.randomTape,logLength:result.log.length,lastState:compactResult(result),recentLog:result.log.slice(-100),winner:result.winner==="left"?"host":result.winner==="right"?"guest":null,finishReason:result.winner?"ko":null};
       await this.storage.put("room",room);this.broadcastBattle(room,"battle_start",{logs:result.log,visualEvents:result.visualEvents});
     }catch(e){this.broadcast({type:"error",message:"No se pudo iniciar: "+String(e.message||e)});}
+  }
+  async normalizeOrder(room,role,order){
+    const b=room.battle;if(!b||b.status!=="playing")throw Error("La batalla todavía no está activa.");
+    if(!order||typeof order!=="object"||Array.isArray(order))throw Error("Acción inválida.");
+    const state=b.lastState,unit=role==="host"?state.left:state.right,team=role==="host"?state.leftTeam:state.rightTeam;
+    if(order.move!==undefined){
+      if(typeof order.move!=="string"||!ID.test(order.move))throw Error("Movimiento inválido.");
+      const s=await snapshot(this.env,b.revision),ent=s.catalog.entities[unit.id],allowed=[...(ent?.definition?.moveIds||[]),ent?.definition?.uniqueMoveId].filter(Boolean);
+      if(!allowed.includes(order.move))throw Error("Ese movimiento no pertenece al personaje activo.");
+      if((unit.cooldowns?.[order.move]||0)>0)throw Error("Ese movimiento todavía está en cooldown.");
+      return {move:order.move};
+    }
+    if(order.switch!==undefined){
+      const i=Number(order.switch),activeIndex=team.findIndex(x=>x.id===unit.id);
+      if(!Number.isInteger(i)||i<0||i>=team.length||i===activeIndex||team[i].hp<=0)throw Error("Cambio inválido.");
+      return {switch:i};
+    }
+    throw Error("Elegí un movimiento o un cambio.");
   }
   async handleOrder(socket,room,role,order){
     const b=room.battle;if(!b||b.status!=="playing"){this.send(socket,{type:"error",message:"La batalla todavía no está activa."});return;}
     if(b.pending?.[role]){this.send(socket,{type:"error",message:"Ya elegiste una acción para esta ronda."});return;}
-    if(!order||typeof order!=="object"||Array.isArray(order)){this.send(socket,{type:"error",message:"Acción inválida."});return;}
-    const state=b.lastState,unit=role==="host"?state.left:state.right,team=role==="host"?state.leftTeam:state.rightTeam;
-    if(order.move!==undefined){
-      if(typeof order.move!=="string"||!ID.test(order.move)){this.send(socket,{type:"error",message:"Movimiento inválido."});return;}
-      let s;try{s=await snapshot(this.env,b.revision);}catch(e){this.send(socket,{type:"error",message:e.message});return;}
-      const ent=s.catalog.entities[unit.id],allowed=[...(ent?.definition?.moveIds||[]),ent?.definition?.uniqueMoveId].filter(Boolean);
-      if(!allowed.includes(order.move)){this.send(socket,{type:"error",message:"Ese movimiento no pertenece al personaje activo."});return;}
-      order={move:order.move};
-    } else if(order.switch!==undefined){
-      const i=Number(order.switch),activeIndex=team.findIndex(x=>x.id===unit.id);
-      if(!Number.isInteger(i)||i<0||i>=team.length||i===activeIndex||team[i].hp<=0){this.send(socket,{type:"error",message:"Cambio inválido."});return;}
-      order={switch:i};
-    } else {this.send(socket,{type:"error",message:"Elegí un movimiento o un cambio."});return;}
+    try{order=await this.normalizeOrder(room,role,order);}catch(e){this.send(socket,{type:"error",message:String(e.message||e)});return;}
+    b.selection=b.selection||{host:null,guest:null};
+    const selected=b.selection[role];
+    if(!selected||JSON.stringify(selected)!==JSON.stringify(order)){this.send(socket,{type:"error",message:"La selección cambió. Elegí la acción nuevamente."});return;}
+    if(!b.selection.host||!b.selection.guest){this.send(socket,{type:"error",message:"El rival todavía no confirmó una selección."});return;}
     b.pending[role]=order;await this.storage.put("room",room);this.send(socket,{type:"order_accepted",round:b.round});
     this.broadcast({type:"battle_waiting",round:b.round,host:!!b.pending.host,guest:!!b.pending.guest});
     if(b.pending.host&&b.pending.guest)await this.resolveRound(room);
@@ -158,12 +224,12 @@ export class Room {
       const s=await snapshot(this.env,b.revision),leftOrders=[...b.leftOrders,b.pending.host],rightOrders=[...b.rightOrders,b.pending.guest];
       const result=simulate({left:host.team[0],right:guest.team[0],leftTeam:host.team,rightTeam:guest.team,catalog:s.catalog,chart:s.chart,turns:b.round,leftOrders,rightOrders,randomTape:b.randomTape});
       const start=b.logLength||0,newLogs=result.log.slice(start),newVisual=result.visualEvents.filter(e=>e.logIndex>=start);
-      b.leftOrders=leftOrders;b.rightOrders=rightOrders;b.randomTape=result.randomTape;b.logLength=result.log.length;b.lastState=compactResult(result);b.recentLog=[...(b.recentLog||[]),...newLogs].slice(-120);b.pending={host:null,guest:null};
+      b.leftOrders=leftOrders;b.rightOrders=rightOrders;b.randomTape=result.randomTape;b.logLength=result.log.length;b.lastState=compactResult(result);b.recentLog=[...(b.recentLog||[]),...newLogs].slice(-120);b.pending={host:null,guest:null};b.selection={host:null,guest:null};
       if(result.winner){b.status="finished";b.winner=result.winner==="left"?"host":"guest";b.finishReason="ko";}else b.round++;
       await this.storage.put("room",room);this.broadcastBattle(room,result.winner?"battle_result":"battle_round",{logs:newLogs,visualEvents:newVisual,logStart:start});
-    }catch(e){b.pending={host:null,guest:null};await this.storage.put("room",room);this.broadcast({type:"error",message:"No se pudo resolver la ronda: "+String(e.message||e)});}
+    }catch(e){b.pending={host:null,guest:null};b.selection={host:null,guest:null};await this.storage.put("room",room);this.broadcast({type:"error",message:"No se pudo resolver la ronda: "+String(e.message||e)});}
   }
-  publicBattle(room,role){const b=room.battle;if(!b)return null;return {status:b.status,revision:b.revision,round:b.round,state:b.lastState,recentLog:b.recentLog||[],winner:b.winner||null,finishReason:b.finishReason||null,submitted:!!b.pending?.[role],opponentSubmitted:!!b.pending?.[role==="host"?"guest":"host"]};}
+  publicBattle(room,role){const b=room.battle;if(!b)return null;return {status:b.status,revision:b.revision,round:b.round,state:b.lastState,recentLog:b.recentLog||[],winner:b.winner||null,finishReason:b.finishReason||null,submitted:!!b.pending?.[role],opponentSubmitted:!!b.pending?.[role==="host"?"guest":"host"],selected:!!b.selection?.[role],opponentSelected:!!b.selection?.[role==="host"?"guest":"host"]};}
   broadcastBattle(room,type,extra={}){for(const s of this.state.getWebSockets()){let role;try{role=s.deserializeAttachment()?.role}catch{}if(role)this.send(s,{type,battle:this.publicBattle(room,role),...extra});}}
   broadcastRoom(room){this.broadcast({type:"room",room:this.publicRoom(room)});}
   publicRoom(room){return {code:room.code,players:(room.players||[]).map(p=>({role:p.role,name:p.name,ready:!!p.ready,teamCount:(p.team||[]).length,connected:!!p.connected})),capacity:2,battleStatus:room.battle?.status||null};}

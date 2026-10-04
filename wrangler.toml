@@ -10,12 +10,12 @@ class_name = "Room"
 tag = "v1"
 new_sqlite_classes = ["Room"]
 
-# Alpha 0.1: main solo lee snapshots publicados desde el editor privado.
+# Alpha 0.1: main lee el catálogo del KV estable del editor sin modificar el editor.
 [[kv_namespaces]]
 binding = "PUBLIC_CONTENT"
 id = "453d2d63210e42149663b5771e76a803"
 
-# Alpha 0.1: recursos publicados del mismo almacén usado por el editor de pruebas.
+# Alpha 0.1: sprites del mismo almacén estable usado por el editor.
 [[r2_buckets]]
 binding = "PUBLIC_SPRITES"
 bucket_name = "universal-duels-sprites-test"

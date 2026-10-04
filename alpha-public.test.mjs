@@ -16,8 +16,10 @@ assert.ok(result.log.some(x=>x.includes('usó m1')));
 assert.ok(result.left.hp<100||result.right.hp<100);
 
 const worker=fs.readFileSync(new URL('./worker.js',import.meta.url),'utf8');
-assert.match(worker,/public-v1:current/);
-assert.match(worker,/PUBLIC_CONTENT/);
+assert.match(worker,/catalog-v1:/);
+assert.match(worker,/loadLiveContent/);
+assert.match(worker,/public-runtime:snapshot/);
+assert.doesNotMatch(worker,/public-v1:current/);
 assert.match(worker,/PUBLIC_SPRITES/);
 assert.match(worker,/data\.type===\"order\"/);
 assert.doesNotMatch(worker,/editor-api\//);
